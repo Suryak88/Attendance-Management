@@ -1,0 +1,9 @@
+# Dependencies
+node_modules/
+
+# Configuration files with secrets
+.env
+config/db.js  # Or whatever your database config file is called
+
+# Log files
+npm-debug.log
