@@ -98,7 +98,7 @@ export default function LeaveType() {
     try {
       await action();
       fetchLeaveTypes();
-      showSuccess(7300);
+      modalActions.showSuccess(7300);
     } catch (error) {
       if (error.response?.status === 409) {
         setErrorMsg("Leave type already exists!");
