@@ -17,6 +17,24 @@ export default function LeaveType() {
     name: "",
     category: "",
   });
+
+  const resetForm = useCallback((data) => {
+    if (data) {
+      setForm((prev) => ({
+        ...prev,
+        id: data.id,
+        name: data.nama,
+        category: data.kategori,
+      }));
+      setErrorMsg("");
+    } else {
+      setTimeout(() => {
+        setForm({ id: null, name: "", category: "" });
+        setErrorMsg("");
+      }, 300);
+    }
+  }, []);
+
   const modal = useModal(resetForm);
   const { open, mode, openModal, close, showSuccess } = modal;
   const setCategories = useCategoryStore((s) => s.setCategories);
@@ -41,23 +59,6 @@ export default function LeaveType() {
   useEffect(() => {
     setCategories(Object.keys(grouped));
   }, [types]);
-
-  const resetForm = useCallback((data) => {
-    if (data) {
-      setForm((prev) => ({
-        ...prev,
-        id: data.id,
-        name: data.nama,
-        category: data.kategori,
-      }));
-      setErrorMsg("");
-    } else {
-      setTimeout(() => {
-        setForm({ id: null, name: "", category: "" });
-        setErrorMsg("");
-      }, 300);
-    }
-  }, []);
 
   function handleCreate(e) {
     e.preventDefault();
