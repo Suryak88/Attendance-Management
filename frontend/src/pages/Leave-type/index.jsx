@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useMemo } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import api from "../../utils/axiosInstance";
 import { useCategoryStore } from "../../store/useLeaveCategoryStore";
@@ -36,7 +36,7 @@ export default function LeaveType() {
     fetchLeaveTypes();
   }, [user]);
 
-  const grouped = groupByCategory(types); //  2 KELOMPOK DATA BERDASARKAN KATEGORI
+  const grouped = useMemo(() => groupByCategory(types), [types]);
 
   useEffect(() => {
     setCategories(Object.keys(grouped));
