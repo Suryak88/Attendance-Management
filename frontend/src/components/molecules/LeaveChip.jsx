@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLeaveModal } from "../../../context/LeaveTypeContext";
+import { useLeaveModal } from "../../context/LeaveTypeContext";
 
 export default function LeaveChip({ label, item }) {
   const { editModal, deleteModal } = useLeaveModal();
