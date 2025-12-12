@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, useMemo } from "react";
+import { useContext, useEffect, useState, useMemo, useCallback } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import api from "../../utils/axiosInstance";
 import { useCategoryStore } from "../../store/useLeaveCategoryStore";
@@ -40,7 +40,7 @@ export default function LeaveType() {
     setCategories(Object.keys(grouped));
   }, [types]);
 
-  function resetForm(data) {
+  const resetForm = useCallback((data) => {
     if (data) {
       setForm((prev) => ({
         ...prev,
@@ -55,7 +55,7 @@ export default function LeaveType() {
         setErrorMsg("");
       }, 300);
     }
-  }
+  }, []);
 
   function handleCreate(e) {
     e.preventDefault();
