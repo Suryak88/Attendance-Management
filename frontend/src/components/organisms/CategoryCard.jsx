@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import Arrow from "../atoms/Arrow";
 import LeaveChip from "../molecules/LeaveChip";
 
-export default function CategoryCard({ title, items }) {
+const CategoryCard = ({ title, items }) => {
   const [arrowOpen, setArrowOpen] = useState(false);
   return (
     <div
@@ -40,4 +40,6 @@ export default function CategoryCard({ title, items }) {
       </div>
     </div>
   );
-}
+};
+
+export default memo(CategoryCard);
