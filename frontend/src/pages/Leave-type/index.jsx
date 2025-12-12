@@ -1,24 +1,17 @@
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import api from "../../utils/axiosInstance";
-import Arrow from "../../components/atoms/Arrow";
-import Modal from "../../components/organisms/Modal";
 import { useCategoryStore } from "../../store/useLeaveCategoryStore";
-import ModalPanel from "../../components/organisms/Modal/modalPanel";
-import FloatingInput from "../../components/atoms/FloatingInput";
-import FloatingSelect from "../../components/atoms/FloatingSelect/FloatingSelect";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useModal } from "../../hooks/useModal";
 import {
   LeaveTypeModalContext,
-  useLeaveModal,
 } from "../../context/LeaveTypeContext";
+import LeaveTypeModal from "../../components/organisms/Modal/LeaveTypeModal";
+import CategoryCard from "../../components/organisms/CategoryCard";
 
 export default function LeaveType() {
   const { user } = useContext(AuthContext);
   const [types, setTypes] = useState([]);
-  // const [name, setName] = useState("");
-  // const [category, setCategory] = useState("");
   const [form, setForm] = useState({
     id: null,
     name: "",
@@ -51,8 +44,6 @@ export default function LeaveType() {
 
   function resetForm(data) {
     if (data) {
-      // setName(data.nama);
-      // setCategory(data.kategori);
       setForm((prev) => ({
         ...prev,
         id: data.id,
@@ -67,35 +58,6 @@ export default function LeaveType() {
       }, 300);
     }
   }
-
-  // async function handleSubmit(e) {
-  //   e.preventDefault();
-
-  //   try {
-  //     if (mode === "edit") {
-  //       await api.put(`/leaveType/${form.id}`, {
-  //         name: form.name,
-  //         category: form.category,
-  //       });
-  //     } else if (mode === "form") {
-  //       await api.post("/leaveType/", {
-  //         name: form.name,
-  //         category: form.category,
-  //       });
-  //     } else if (mode === "confirm") {
-  //       await api.delete(`/leaveType/${form.id}`);
-  //     }
-
-  //     fetchLeaveTypes();
-  //     showSuccess(7300);
-  //   } catch (error) {
-  //     if (error.response?.status === 409) {
-  //       setErrorMsg("Leave type already exists!");
-  //       return;
-  //     }
-  //     console.error(error);
-  //   }
-  // }
 
   function handleCreate(e) {
     e.preventDefault();
@@ -168,99 +130,18 @@ export default function LeaveType() {
               </span>
               Add
             </button>
-            {mode === "form" && (
-              <Modal openModal={open} onClose={close}>
-                <ModalPanel
-                  title={"Add Leave Type"}
-                  onSubmit={handleCreate}
-                  btnLabel={"Add"}
-                  handleClose={close}
-                  mode={mode}
-                >
-                  <p
-                    className={`animate-bounce transition duration-300 ease-in-out text-base font-semibold text-red-500 text-center mb-2 ${
-                      errorMsg ? "opacity-100" : "opacity-0"
-                    }`}
-                  >
-                    {errorMsg}
-                  </p>
-                  <FloatingInput
-                    id="Name"
-                    value={form.name}
-                    onValueChange={(v) => setField("name", v)}
-                  />
-                  <FloatingSelect
-                    id="Category"
-                    value={form.category}
-                    onValueChange={(v) => setField("category", v)}
-                    options={Object.keys(grouped)}
-                  />
-                </ModalPanel>
-              </Modal>
-            )}
-            {mode === "edit" && (
-              <Modal openModal={open} onClose={close}>
-                <ModalPanel
-                  title={"Edit Leave Type"}
-                  onSubmit={handleEdit}
-                  btnLabel={"Submit"}
-                  handleClose={close}
-                  mode={mode}
-                >
-                  <p
-                    className={`animate-bounce transition duration-300 ease-in-out text-base font-semibold text-red-500 text-center mb-2 ${
-                      errorMsg ? "opacity-100" : "opacity-0"
-                    }`}
-                  >
-                    {errorMsg}
-                  </p>
-                  <FloatingInput
-                    id="Name"
-                    value={form.name}
-                    onValueChange={(v) => setField("name", v)}
-                  />
-                  <FloatingSelect
-                    id="Category"
-                    value={form.category}
-                    onValueChange={(v) => setField("category", v)}
-                    options={Object.keys(grouped)}
-                  />
-                </ModalPanel>
-              </Modal>
-            )}
-            {mode === "success" && (
-              <Modal openModal={open} onClose={close}>
-                <ModalPanel
-                  title={"Succesfull!"}
-                  onSubmit={close}
-                  btnLabel={"OK!"}
-                  handleClose={close}
-                  mode={mode}
-                >
-                  <div className="overflow-clip max-w-sm flex justify-center items-center w-fit h-fit mx-auto">
-                    <DotLottieReact
-                      src="/animation/Checkmark.lottie"
-                      autoplay
-                      loop
-                      className="origin-center scale-150"
-                    />
-                  </div>
-                </ModalPanel>
-              </Modal>
-            )}
-            {mode === "confirm" && (
-              <Modal openModal={open} onClose={close}>
-                <ModalPanel
-                  title={`Delete ${form.name}?`}
-                  onSubmit={handleDelete}
-                  btnLabel={"OK!"}
-                  handleClose={close}
-                  mode={mode}
-                >
-                  <button className="bg-slate-400 p-3 rounded-xl">No!</button>
-                </ModalPanel>
-              </Modal>
-            )}
+            <LeaveTypeModal
+              open={open}
+              mode={mode}
+              onClose={close}
+              form={form}
+              setField={setField}
+              errorMsg={errorMsg}
+              grouped={grouped}
+              handleCreate={handleCreate}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
+            />
           </div>
 
           <div className="columns-1 md:columns-2 gap-6">
@@ -282,205 +163,4 @@ function groupByCategory(data) {
     acc[item.kategori].push(item);
     return acc;
   }, {});
-}
-
-function CategoryCard({ title, items }) {
-  const [arrowOpen, setArrowOpen] = useState(false);
-  return (
-    <div
-      className={`
-      bg-white rounded-xl shadow-sm border border-slate-200 
-      px-5 py-3 flex flex-col space-y-2
-      hover:shadow-md transition duration-200 ease-in-out
-    `}
-    >
-      <div
-        className="flex justify-between mb-3"
-        onClick={() => setArrowOpen(!arrowOpen)}
-      >
-        <h4 className="text-lg font-semibold text-slate-700">{title}</h4>
-        <Arrow
-          arrowOpen={arrowOpen}
-          handleClick={() => setArrowOpen(!arrowOpen)}
-        />
-      </div>
-      <div
-        className={`flex flex-wrap gap-2 transition-all duration-300 ease-in-out overflow-auto ${
-          arrowOpen
-            ? "max-h-40 opacity-100 translate-y-0"
-            : "max-h-0 opacity-0 -translate-y-1"
-        }`}
-      >
-        {items.map((item, idx) => (
-          <LeaveChip
-            key={item.id}
-            label={item.nama}
-            expand={arrowOpen}
-            item={item}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// function LeaveChip({ label, item }) {
-//   const { editModal, deleteModal } = useLeaveModal();
-//   const [showAction, setShowAction] = useState(false);
-//   const [canHover, setCanHover] = useState();
-//   // const canHover = window.matchMedia("(hover: hover)").matches;
-
-//   useEffect(() => {
-//     const mql = window.matchMedia("(hover: hover)");
-//     const update = () => setCanHover(mql.matches);
-//     update();
-//     mql.addEventListener("change", update);
-//     return () => mql.removeEventListener("change", update);
-//   }, []);
-
-//   const toggleAction = (e) => {
-//     e.stopPropagation();
-
-//     // Jika device bisa hover → jangan pakai mode click
-//     if (canHover) return;
-
-//     // Jika tidak bisa hover → pakai mobile mode
-//     setShowAction((prev) => !prev);
-//   };
-
-//   useEffect(() => {
-//     if (!showAction) return;
-//     if (canHover) return;
-
-//     const close = () => setShowAction(false);
-//     document.addEventListener("click", close);
-
-//     return () => document.removeEventListener("click", close);
-//   }, [showAction]);
-
-//   return (
-//     <>
-//       <span
-//         className={`
-//         px-3 py-1.5 bg-[oklch(92%_0.015_254)]
-//         text-slate-700 text-sm font-medium
-//         rounded-full border border-slate-300
-//         hover:bg-[oklch(89%_0.017_254)] hover:text-slate-900
-//         transition-all duration-300 ease-in-out group relative
-//       `}
-//         onClick={toggleAction}
-//       >
-//         {/* {label} */}
-//         {!showAction && <span>{label}</span>}
-//         <div
-//           title={`Edit ${label}`}
-//           className={`flex opacity-0 group-hover:bg-slate-300 group-hover:opacity-100 absolute w-1/2 h-full rounded-l-full top-0 left-0 items-center justify-center hover:text-blue-600 hover:bg-slate-200 transition-all duration-300 ${
-//             showAction
-//               ? "opacity-100 bg-slate-100 text-blue-600 border-r border-r-slate-300"
-//               : "opacity-0"
-//           }`}
-//           onClick={(e) => {
-//             e.stopPropagation();
-//             editModal(item);
-//           }}
-//         >
-//           <span className="material-symbols-outlined select-none">edit</span>
-//         </div>
-//         <div
-//           title={`Delete ${label}`}
-//           className={`flex opacity-0 group-hover:bg-slate-300 group-hover:opacity-100 absolute w-1/2 h-full rounded-r-full top-0 right-0 items-center justify-center hover:text-red-500 hover:bg-slate-200 transition-all duration-300 ${
-//             showAction ? "opacity-100 bg-slate-100 text-red-500" : " opacity-0"
-//           }`}
-//           onClick={(e) => {
-//             e.stopPropagation();
-//             deleteModal(item);
-//           }}
-//         >
-//           <span className="material-symbols-outlined select-none">delete</span>
-//         </div>
-//       </span>
-//     </>
-//   );
-// }
-
-// old ver
-function LeaveChip({ label, item }) {
-  const { editModal, deleteModal } = useLeaveModal();
-  const [showAction, setShowAction] = useState(false);
-  const [canHover, setCanHover] = useState(false);
-
-  useEffect(() => {
-    const mql = window.matchMedia("(hover: hover)");
-    const update = () => setCanHover(mql.matches);
-    update();
-    mql.addEventListener("change", update);
-    return () => mql.removeEventListener("change", update);
-  }, []);
-
-  function toggleAction(e) {
-    if (canHover) return;
-    e.stopPropagation();
-
-    setShowAction((prev) => !prev);
-  }
-
-  useEffect(() => {
-    if (!showAction || canHover) return;
-
-    const close = () => setShowAction(false);
-    document.addEventListener("click", close);
-
-    return () => document.removeEventListener("click", close);
-  }, [showAction, canHover]);
-
-  return (
-    <>
-      <span
-        onClick={toggleAction}
-        className={`
-        px-3 py-1.5 bg-[oklch(92%_0.015_254)]
-        text-slate-700 text-sm font-medium
-        rounded-full border border-slate-300
-        hover:bg-[oklch(89%_0.017_254)] hover:text-slate-900
-        transition-all duration-300 ease-in-out group relative
-      `}
-      >
-        {label}
-
-        <div
-          title={`Edit ${label}`}
-          className={`absolute w-1/2 h-full rounded-l-full top-0 left-0 flex items-center justify-center hover:text-blue-600 hover:bg-slate-200 transition-all duration-300 pointer-events-auto cursor-pointer group-hover:bg-slate-300 group-hover:opacity-100 opacity-0     ${
-            canHover
-              ? "group-hover:bg-slate-200 group-hover:opacity-100 opacity-0 pointer-events-auto"
-              : showAction
-              ? "bg-slate-100 opacity-100 text-blue-600 border-r border-slate-300 pointer-events-auto"
-              : "opacity-0 pointer-events-none"
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            editModal(item);
-          }}
-        >
-          <span className="material-symbols-outlined select-none">edit</span>
-        </div>
-
-        <div
-          title={`Delete ${label}`}
-          className={`opacity-0  absolute w-1/2 h-full rounded-r-full top-0 right-0 flex items-center justify-center hover:text-red-500 hover:bg-slate-200 transition-all duration-300 ${
-            canHover
-              ? "group-hover:bg-slate-300 group-hover:opacity-100 opacity-0 pointer-events-auto"
-              : showAction
-              ? "bg-slate-200 opacity-100 text-red-500 pointer-events-auto"
-              : "group-hover:bg-slate-300 group-hover:opacity-100 pointer-events-none"
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            deleteModal(item);
-          }}
-        >
-          <span className="material-symbols-outlined select-none">delete</span>
-        </div>
-      </span>
-    </>
-  );
 }
