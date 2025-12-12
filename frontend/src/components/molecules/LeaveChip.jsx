@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { useLeaveModal } from "../../context/LeaveTypeContext";
 
-export default function LeaveChip({ label, item }) {
+const LeaveChip = ({ label, item }) => {
   const { editModal, deleteModal } = useLeaveModal();
   const [showAction, setShowAction] = useState(false);
   const [canHover, setCanHover] = useState(false);
@@ -80,4 +80,6 @@ export default function LeaveChip({ label, item }) {
       </span>
     </>
   );
-}
+};
+
+export default memo(LeaveChip);
