@@ -3,9 +3,7 @@ import { AuthContext } from "../../context/AuthContext";
 import api from "../../utils/axiosInstance";
 import { useCategoryStore } from "../../store/useLeaveCategoryStore";
 import { useModal } from "../../hooks/useModal";
-import {
-  LeaveTypeModalContext,
-} from "../../context/LeaveTypeContext";
+import { LeaveTypeModalContext } from "../../context/LeaveTypeContext";
 import LeaveTypeModal from "../../components/organisms/Modal/LeaveTypeModal";
 import CategoryCard from "../../components/organisms/CategoryCard";
 
