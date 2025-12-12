@@ -7,3 +7,5 @@ config/db.js  # Or whatever your database config file is called
 
 # Log files
 npm-debug.log
+backend.log
+frontend.log

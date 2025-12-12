@@ -66,16 +66,18 @@ export function useModal(onResetForm) {
     [close]
   );
 
-  return useMemo(
+  const modalActions = useMemo(
     () => ({
-      open,
-      mode,
       openModal,
       editModal,
       deleteModal,
       close,
       showSuccess,
     }),
-    [open, mode, openModal, editModal, deleteModal, close, showSuccess]
+    [openModal, editModal, deleteModal, close, showSuccess]
   );
+
+  const modalState = { open, mode };
+
+  return [modalState, modalActions];
 }

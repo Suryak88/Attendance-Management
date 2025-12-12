@@ -1,8 +1,8 @@
 import { useState, useEffect, memo } from "react";
-import { useLeaveModal } from "../../context/LeaveTypeContext";
+import { useLeaveModalActions } from "../../context/LeaveTypeContext";
 
 const LeaveChip = ({ label, item }) => {
-  const { editModal, deleteModal } = useLeaveModal();
+  const { editModal, deleteModal } = useLeaveModalActions();
   const [showAction, setShowAction] = useState(false);
   const [canHover, setCanHover] = useState(false);
 
