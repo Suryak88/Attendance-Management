@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 
 export function useModal(onResetForm) {
   const [open, setOpen] = useState(false);
@@ -66,13 +66,16 @@ export function useModal(onResetForm) {
     [close]
   );
 
-  return {
-    open,
-    mode,
-    openModal,
-    editModal,
-    deleteModal,
-    close,
-    showSuccess,
-  };
+  return useMemo(
+    () => ({
+      open,
+      mode,
+      openModal,
+      editModal,
+      deleteModal,
+      close,
+      showSuccess,
+    }),
+    [open, mode, openModal, editModal, deleteModal, close, showSuccess]
+  );
 }
