@@ -2,7 +2,13 @@ import { useState, memo } from "react";
 import Arrow from "../atoms/Arrow";
 import LeaveChip from "../molecules/LeaveChip";
 
-const CategoryCard = ({ title, items }) => {
+const CategoryCard = ({
+  title,
+  items,
+  activeChipId,
+  setActiveChipId,
+  canHover,
+}) => {
   const [arrowOpen, setArrowOpen] = useState(false);
   return (
     <div
@@ -13,15 +19,13 @@ const CategoryCard = ({ title, items }) => {
     `}
     >
       <div
-        className="flex justify-between mb-3"
-        onClick={() => setArrowOpen(!arrowOpen)}
+        className="flex justify-between mb-3 cursor-pointer"
+        onClick={() => setArrowOpen((p) => !p)}
       >
         <h4 className="text-lg font-semibold text-slate-700">{title}</h4>
-        <Arrow
-          arrowOpen={arrowOpen}
-          handleClick={() => setArrowOpen(!arrowOpen)}
-        />
+        <Arrow arrowOpen={arrowOpen} />
       </div>
+
       <div
         className={`flex flex-wrap gap-2 transition-all duration-300 ease-in-out overflow-auto ${
           arrowOpen
@@ -29,12 +33,13 @@ const CategoryCard = ({ title, items }) => {
             : "max-h-0 opacity-0 -translate-y-1"
         }`}
       >
-        {items.map((item, idx) => (
+        {items.map((item) => (
           <LeaveChip
             key={item.id}
-            label={item.nama}
-            expand={arrowOpen}
             item={item}
+            isActive={activeChipId === item.id}
+            setActiveChipId={setActiveChipId}
+            canHover={canHover}
           />
         ))}
       </div>

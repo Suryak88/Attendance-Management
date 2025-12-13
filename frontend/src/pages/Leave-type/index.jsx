@@ -6,6 +6,7 @@ import { useModal } from "../../hooks/useModal";
 import { LeaveTypeModalContext } from "../../context/LeaveTypeContext";
 import LeaveTypeModal from "../../components/organisms/Modal/LeaveTypeModal";
 import CategoryCard from "../../components/organisms/CategoryCard";
+import { useCanHover } from "../../hooks/useCanHover";
 
 export default function LeaveType() {
   const { user } = useContext(AuthContext);
@@ -15,6 +16,8 @@ export default function LeaveType() {
     name: "",
     category: "",
   });
+  const [activeChipId, setActiveChipId] = useState(null);
+  const canHover = useCanHover();
 
   const resetForm = useCallback((data) => {
     if (data) {
@@ -32,6 +35,15 @@ export default function LeaveType() {
       }, 300);
     }
   }, []);
+
+  useEffect(() => {
+    if (canHover || activeChipId === null) return;
+
+    const close = () => setActiveChipId(null);
+    document.addEventListener("click", close);
+
+    return () => document.removeEventListener("click", close);
+  }, [activeChipId, canHover]);
 
   const modal = useModal(resetForm);
   const { open, mode, openModal, close, showSuccess } = modal;
@@ -112,6 +124,12 @@ export default function LeaveType() {
     }));
   }
 
+  useEffect(() => {
+    if (mode === "success" && !open) {
+      setActiveChipId(null);
+    }
+  }, [mode, open]);
+
   return (
     <>
       <LeaveTypeModalContext.Provider value={modal}>
@@ -146,7 +164,13 @@ export default function LeaveType() {
           <div className="columns-1 md:columns-2 gap-6">
             {Object.keys(grouped).map((cat) => (
               <div key={cat} className="break-inside-avoid mb-6">
-                <CategoryCard key={cat} title={cat} items={grouped[cat]} />
+                <CategoryCard
+                  title={cat}
+                  items={grouped[cat]}
+                  activeChipId={activeChipId}
+                  setActiveChipId={setActiveChipId}
+                  canHover={canHover}
+                />
               </div>
             ))}
           </div>

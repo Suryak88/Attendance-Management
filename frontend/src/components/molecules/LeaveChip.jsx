@@ -1,34 +1,15 @@
 import { useState, useEffect, memo } from "react";
 import { useLeaveModal } from "../../context/LeaveTypeContext";
 
-const LeaveChip = ({ label, item }) => {
+const LeaveChip = ({ item, isActive, setActiveChipId, canHover }) => {
   const { editModal, deleteModal } = useLeaveModal();
-  const [showAction, setShowAction] = useState(false);
-  const [canHover, setCanHover] = useState(false);
-
-  useEffect(() => {
-    const mql = window.matchMedia("(hover: hover)");
-    const update = () => setCanHover(mql.matches);
-    update();
-    mql.addEventListener("change", update);
-    return () => mql.removeEventListener("change", update);
-  }, []);
 
   function toggleAction(e) {
     if (canHover) return;
     e.stopPropagation();
 
-    setShowAction((prev) => !prev);
+    setActiveChipId(isActive ? null : item.id);
   }
-
-  useEffect(() => {
-    if (!showAction || canHover) return;
-
-    const close = () => setShowAction(false);
-    document.addEventListener("click", close);
-
-    return () => document.removeEventListener("click", close);
-  }, [showAction, canHover]);
 
   return (
     <>
@@ -42,31 +23,31 @@ const LeaveChip = ({ label, item }) => {
         transition-all duration-300 ease-in-out group relative
       `}
       >
-        {label}
+        {item.nama}
 
         <div
-          title={`Edit ${label}`}
-          className={`absolute w-1/2 h-full rounded-l-full top-0 left-0 flex items-center justify-center hover:text-blue-600 hover:bg-slate-200 transition-all duration-300 pointer-events-auto cursor-pointer group-hover:bg-slate-300 group-hover:opacity-100 opacity-0     ${
-            canHover
-              ? "group-hover:bg-slate-200 group-hover:opacity-100 opacity-0 pointer-events-auto"
-              : showAction
-              ? "bg-slate-100 opacity-100 text-blue-600 border-r border-slate-300 pointer-events-auto"
-              : "opacity-0 pointer-events-none"
-          }`}
+          title={`Edit ${item.nama}`}
           onClick={(e) => {
             e.stopPropagation();
             editModal(item);
           }}
+          className={`absolute w-1/2 h-full rounded-l-full top-0 left-0 flex items-center justify-center hover:text-blue-600 hover:bg-slate-200 transition-all duration-300 pointer-events-auto cursor-pointer group-hover:bg-slate-300 group-hover:opacity-100 opacity-0     ${
+            canHover
+              ? "group-hover:bg-slate-200 group-hover:opacity-100 opacity-0 pointer-events-auto"
+              : isActive
+              ? "bg-slate-200 opacity-100 text-blue-600 border-r border-slate-300 pointer-events-auto"
+              : "opacity-0 pointer-events-none"
+          }`}
         >
           <span className="material-symbols-outlined select-none">edit</span>
         </div>
 
         <div
-          title={`Delete ${label}`}
+          title={`Delete ${item.nama}`}
           className={`opacity-0  absolute w-1/2 h-full rounded-r-full top-0 right-0 flex items-center justify-center hover:text-red-500 hover:bg-slate-200 transition-all duration-300 ${
             canHover
               ? "group-hover:bg-slate-300 group-hover:opacity-100 opacity-0 pointer-events-auto"
-              : showAction
+              : isActive
               ? "bg-slate-200 opacity-100 text-red-500 pointer-events-auto"
               : "group-hover:bg-slate-300 group-hover:opacity-100 pointer-events-none"
           }`}
