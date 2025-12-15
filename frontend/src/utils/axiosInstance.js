@@ -5,10 +5,10 @@ const api = axios.create({
   withCredentials: true,
 });
 
-const token = localStorage.getItem("token");
-if (token) {
-  api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-}
+// const token = localStorage.getItem("token");
+// if (token) {
+//   api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+// }
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
@@ -42,6 +42,13 @@ api.interceptors.response.use(
         window.location.href = "/";
       }
     }
+
+    if (err.response?.status === 403) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/";
+    }
+
     return Promise.reject(err);
   }
 );

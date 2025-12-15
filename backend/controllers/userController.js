@@ -44,6 +44,8 @@ export async function loginUser(req, res) {
       sameSite: "lax",
       // secure: true,
       // sameSite: "strict",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.json({ accessToken, user: { username: user.nama } });
