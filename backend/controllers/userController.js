@@ -43,6 +43,7 @@ export async function loginUser(req, res) {
       secure: false,
       sameSite: "lax",
       path: "/",
+      domain: "localhost",
       // secure: true,
       // sameSite: "strict",
     });

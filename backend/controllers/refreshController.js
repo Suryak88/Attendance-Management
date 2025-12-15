@@ -23,6 +23,6 @@ export function refreshAccessToken(req, res) {
 }
 
 export function logoutUser(req, res) {
-  res.clearCookie("refreshToken", { path: "/" });
+  res.clearCookie("refreshToken", { path: "/", domain: "localhost" });
   res.json({ message: "Logged out" });
 }
