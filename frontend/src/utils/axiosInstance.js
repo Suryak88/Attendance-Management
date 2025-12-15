@@ -5,19 +5,6 @@ const api = axios.create({
   withCredentials: true,
 });
 
-const token = localStorage.getItem("token");
-if (token) {
-  api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-}
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 api.interceptors.response.use(
   (res) => res,
   async (err) => {
@@ -28,17 +15,19 @@ api.interceptors.response.use(
 
       try {
         const res = await api.post("/users/refresh");
+        const { accessToken } = res.data;
 
-        localStorage.setItem("token", res.data.accessToken);
-        api.defaults.headers.common[
-          "Authorization"
-        ] = `Bearer ${res.data.accessToken}`;
+        // Update the default Authorization header for all subsequent requests
+        api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
 
-        original.headers["Authorization"] = `Bearer ${res.data.accessToken}`;
-
+        // Update the Authorization header for the original request and retry it
+        original.headers["Authorization"] = `Bearer ${accessToken}`;
         return api(original);
       } catch (error) {
-        localStorage.removeItem("token");
+        console.error("Session expired or invalid. Redirecting to login.", error);
+        // Clear the Authorization header
+        delete api.defaults.headers.common["Authorization"];
+        // Redirect to login page
         window.location.href = "/";
       }
     }
