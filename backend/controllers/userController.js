@@ -42,6 +42,7 @@ export async function loginUser(req, res) {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
+      path: "/",
       // secure: true,
       // sameSite: "strict",
     });
