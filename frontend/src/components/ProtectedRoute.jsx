@@ -4,9 +4,9 @@ import { AuthContext } from "../context/AuthContext";
 
 export default function ProtectedRoute({ children }) {
   // const token = localStorage.getItem("token");
-  const { token } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
-  if (!token) {
+  if (!user) {
     return <Navigate to="/" />;
   }
 

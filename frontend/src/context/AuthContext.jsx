@@ -4,8 +4,17 @@ import api from "../utils/axiosInstance";
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  // const [user, setUser] = useState(null);
+  // const [token, setToken] = useState(null);
+
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("user");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem("token");
+  });
 
   useEffect(() => {
     const refreshUser = async () => {
@@ -18,7 +27,8 @@ export function AuthProvider({ children }) {
           login(refreshedUser, newAccessToken);
         }
       } catch (error) {
-        logout();
+        console.log("Refresh token invalid or expired");
+        // logout();
       }
     };
     refreshUser();
@@ -30,6 +40,8 @@ export function AuthProvider({ children }) {
 
     localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("token", tokenData);
+
+    api.defaults.headers.common["Authorization"] = `Bearer ${tokenData}`;
   };
 
   const logout = async () => {
