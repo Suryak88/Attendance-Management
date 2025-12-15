@@ -1,38 +1,59 @@
 import { createContext, useState, useEffect } from "react";
+import api from "../utils/axiosInstance";
 
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load saat refresh (mount pertama)
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const storedToken = localStorage.getItem("token");
+    const verifyUser = async () => {
+      try {
+        const response = await api.post("/users/refresh");
+        const { user, accessToken } = response.data;
+        if (user && accessToken) {
+          setUser(user);
+          setToken(accessToken);
+          api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+        }
+      } catch (error) {
+        console.error("No valid session.", error);
+        setUser(null);
+        setToken(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (storedUser) setUser(JSON.parse(storedUser));
-    if (storedToken) setToken(storedToken);
+    verifyUser();
   }, []);
 
   const login = (userData, tokenData) => {
     setUser(userData);
     setToken(tokenData);
-
-    localStorage.setItem("user", JSON.stringify(userData));
-    localStorage.setItem("token", tokenData);
+    api.defaults.headers.common["Authorization"] = `Bearer ${tokenData}`;
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
+  const logout = async () => {
+    try {
+      await api.post("/users/logout");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setUser(null);
+      setToken(null);
+      delete api.defaults.headers.common["Authorization"];
+    }
   };
+
+  if (loading) {
+    return <div>Loading...</div>; // Or a proper spinner component
+  }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
