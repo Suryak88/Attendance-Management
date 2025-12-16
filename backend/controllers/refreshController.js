@@ -11,9 +11,10 @@ export async function refreshAccessToken(req, res) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
 
-    const [rows] = await pool.query("SELECT * FROM m_users WHERE regnum = ?", [
-      decoded.regnum,
-    ]);
+    const [rows] = await pool.query(
+      "SELECT * FROM m_users WHERE regnum = ? AND fl_hapus != 1",
+      [decoded.regnum]
+    );
     const user = rows[0];
 
     if (!user) return res.status(404).json({ message: "User Not Found" });

@@ -16,24 +16,6 @@ export function AuthProvider({ children }) {
     return localStorage.getItem("token");
   });
 
-  useEffect(() => {
-    const refreshUser = async () => {
-      try {
-        const response = await api.post("/users/refresh");
-        const { accessToken: newAccessToken, user: refreshedUser } =
-          response.data;
-
-        if (refreshedUser && newAccessToken) {
-          login(refreshedUser, newAccessToken);
-        }
-      } catch (error) {
-        console.log("Refresh token invalid or expired");
-        // logout();
-      }
-    };
-    refreshUser();
-  }, []);
-
   const login = (userData, tokenData) => {
     setUser(userData);
     setToken(tokenData);
