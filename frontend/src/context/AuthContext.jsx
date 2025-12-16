@@ -4,39 +4,17 @@ import api from "../utils/axiosInstance";
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  // const [user, setUser] = useState(null);
+  // const [token, setToken] = useState(null);
 
-  // Load saat refresh (mount pertama)
-  // useEffect(() => {
-  //   const storedUser = localStorage.getItem("user");
-  //   const storedToken = localStorage.getItem("token");
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("user");
+    return saved ? JSON.parse(saved) : null;
+  });
 
-  //   if (storedUser) setUser(JSON.parse(storedUser));
-  //   if (storedToken) setToken(storedToken);
-  // }, []);
-
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) setUser(JSON.parse(storedUser));
-
-        const res = await api.post("/users/refresh");
-
-        setToken(res.data.accessToken);
-        localStorage.setItem("token", res.data.accessToken);
-      } catch (err) {
-        console.error("Refresh Token failed:", err);
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      }
-    };
-
-    initAuth();
-  }, []);
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem("token");
+  });
 
   const login = (userData, tokenData) => {
     setUser(userData);
@@ -44,21 +22,22 @@ export function AuthProvider({ children }) {
 
     localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("token", tokenData);
+
+    api.defaults.headers.common["Authorization"] = `Bearer ${tokenData}`;
   };
 
-  // const logout = () => {
-  //   setUser(null);
-  //   setToken(null);
-
-  //   localStorage.removeItem("user");
-  //   localStorage.removeItem("token");
-  // };
-
   const logout = async () => {
-    await api.post("/users/logout");
-    setUser(null);
-    setToken(null);
-    localStorage.clear();
+    try {
+      await api.post("/users/logout");
+    } catch (error) {
+      console.error("Logout failed", error);
+    } finally {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      api.defaults.headers.common["Authorization"] = null;
+    }
   };
 
   return (
