@@ -1,0 +1,182 @@
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+
+  <body>
+    <div class="break-after-page px-2">
+      <div class="flex items-center justify-between mb-3">
+        <img src="{{logo}}" alt="Bagus Group" class="w-18" />
+        <h2
+          class="flex self-center justify-center text-center text-xl font-medium"
+        >
+          Laporan Absensi
+        </h2>
+        <img src="{{logo}}" alt="Bagus Group" class="w-18 opacity-0" />
+      </div>
+
+      <div class="flex text-sm">
+        <div class="flex flex-col e w-1/2">
+          <div class="flex gap-2 w-sm">
+            <div class="min-w-15">
+              <p>Nama</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{nama}}</p>
+            </div>
+          </div>
+          <div class="flex gap-2 w-sm">
+            <div class="min-w-15">
+              <p>Divisi</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{divisi}}</p>
+            </div>
+          </div>
+          <div class="flex gap-2 w-sm">
+            <div class="min-w-15">
+              <p>Jabatan</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{jabatan}}</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-col w-1/2">
+          <div class="flex gap-2 w-sm">
+            <div class="min-w-15">
+              <p>Periode</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{periode}}</p>
+            </div>
+          </div>
+          <div class="flex gap-2 w-sm">
+            <div class="min-w-15">
+              <p>Status</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{status}}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="my-3">
+        <table class="border-black w-full text-sm">
+          <thead class="">
+            <tr class="border border-black">
+              <th class="border p-1 border-black">Tanggal</th>
+              <th class="border">Masuk</th>
+              <th class="border">Pulang</th>
+              <th class="border">Terlambat</th>
+              <th class="border">Pulang Awal</th>
+              <th class="border">Lembur</th>
+              <th class="border">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{rows}}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex text-sm gap-4">
+        <!-- <div class="flex flex-col w-1/4">
+          <div class="flex gap-2">
+            <div class="w-18 shrink-0">
+              <p>Hadir</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{present_days}}/{{total_workdays}} hari</p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <div class="w-18 shrink-0">
+              <p>Jam kerja</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{jam_kerja}}/{{jam_target}} menit</p>
+            </div>
+          </div>
+        </div> -->
+        <!-- kiri -->
+        <div class="w-1/3">{{left_column}}</div>
+
+        <!-- tengah -->
+        <div class="w-1/3">{{middle_column}}</div>
+
+        <!-- kanan -->
+        <div class="w-1/3">{{right_column}}</div>
+        <!-- <div class="flex flex-col w-1/3">
+          <div class="flex gap-2 w-fit">
+            <div class="w-40">
+              <p>Terlambat</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{terlambat}} menit</p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <div class="w-40">
+              <p>Pulang lebih awal</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{pulang_cepat}} menit</p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <div class="w-40">
+              <p>Lembur</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{lembur}} Jam</p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <div class="w-40">
+              <p>Perhitungan Lembur</p>
+            </div>
+            <div class="">
+              <p>:</p>
+            </div>
+            <div class="">
+              <p>{{jam_lembur}} Jam</p>
+            </div>
+          </div>
+        </div> -->
+        <!-- <div class="flex flex-col w-1/3">{{additional_leave}}</div> -->
+      </div>
+    </div>
+  </body>
+</html>

@@ -10,6 +10,17 @@ const api = axios.create({
 //   api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 // }
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token);
+  });
+  failedQueue = [];
+};
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (
@@ -27,38 +38,81 @@ api.interceptors.response.use(
   async (err) => {
     const original = err.config;
 
+    // if (
+    //   err.response?.status === 401 &&
+    //   !original._retry &&
+    //   !original.url.includes("/users/refresh")
+    // ) {
+    //   original._retry = true;
+
+    //   try {
+    //     const res = await api.post("/users/refresh");
+
+    //     const newToken = res.data.accessToken;
+    //     localStorage.setItem("token", newToken);
+
+    //     api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+    //     original.headers.Authorization = `Bearer ${newToken}`;
+
+    //     return api(original);
+    //   } catch (error) {
+    //     localStorage.removeItem("token");
+    //     localStorage.removeItem("user");
+    //     window.location.href = "/";
+    //   }
+    // }
+
     if (
       err.response?.status === 401 &&
       !original._retry &&
       !original.url.includes("/users/refresh")
     ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          original.headers.Authorization = `Bearer ${token}`;
+          return api(original);
+        });
+      }
+
       original._retry = true;
+      isRefreshing = true;
 
       try {
         const res = await api.post("/users/refresh");
-
         const newToken = res.data.accessToken;
+
         localStorage.setItem("token", newToken);
-
         api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-        original.headers.Authorization = `Bearer ${newToken}`;
 
+        processQueue(null, newToken);
         return api(original);
       } catch (error) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.href = "/";
+        processQueue(error, null);
+        localStorage.clear();
+        // window.location.href = "/";
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
       }
     }
 
-    if (err.response?.status === 403) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+    // if (err.response?.status === 403) {
+    //   localStorage.removeItem("token");
+    //   localStorage.removeItem("user");
+    //   window.location.href = "/";
+    // }
+    if (
+      err.response?.status === 403 &&
+      err.config.url.includes("/users/refresh")
+    ) {
+      localStorage.clear();
       window.location.href = "/";
     }
 
     return Promise.reject(err);
-  }
+  },
 );
 
 export default api;
@@ -73,3 +127,8 @@ export default api;
 // api atau axiosInstance sekarang pakai token terbaru,
 // req original yang tdi gagal dikasih token baru.
 // lalu jalankan lagi request yang gagal sebelumnya namun skrng dengan token baru
+
+// ----------------------
+
+// refresh token jadi global (Lock), hanya satu refresh token boleh jalan ketika banyak request yang butuh
+// ulang request

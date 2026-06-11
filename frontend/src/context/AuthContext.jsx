@@ -4,9 +4,7 @@ import api from "../utils/axiosInstance";
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  // const [user, setUser] = useState(null);
-  // const [token, setToken] = useState(null);
-
+  const [subordinates, setSubordinates] = useState([]);
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("user");
     return saved ? JSON.parse(saved) : null;
@@ -16,7 +14,26 @@ export function AuthProvider({ children }) {
     return localStorage.getItem("token");
   });
 
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchSubordinates = async () => {
+      try {
+        const res = await api.get("/users/subordinates");
+        setSubordinates(res.data);
+      } catch (err) {
+        console.error("Failed to fetch subordinates", err);
+      }
+    };
+
+    fetchSubordinates();
+  }, [user]);
+
   const login = (userData, tokenData) => {
+    // setUser({
+    //   regnum: userData.regnum,
+    //   nama: userData.nama,
+    // });
     setUser(userData);
     setToken(tokenData);
 
@@ -41,7 +58,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, subordinates, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

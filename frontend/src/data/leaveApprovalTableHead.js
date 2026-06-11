@@ -1,0 +1,6 @@
+export const columns = [
+  { key: "1", label: "Name" },
+  { key: "2", label: "Leave Type" },
+  { key: "3", label: "Date", flexSize: "flex-2" },
+  { key: "4", label: "More", flexSize: "flex-[0.2]" },
+];

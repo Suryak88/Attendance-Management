@@ -13,4 +13,85 @@
       animationtimingfunction: cubic-bezier(0, 0, 0.2, 1);
     }
   }
+
+  --animate-pendulum: pendulum 3s ease-in-out infinite;
+  @keyframes pendulum {
+    0% {
+      transform: rotate(-60deg);
+    }
+    50% {
+      transform: rotate(60deg);
+    }
+    100% {
+      transform: rotate(-60deg);
+    }
+  }
+
+  --animate-slide-left: slide-left 0.3s ease-out;
+  @keyframes slide-left {
+    0% { 
+      transform: translateX(30px);
+      opacity: 0 
+    }
+    100% { 
+      transform: translateX(0)
+      opacity: 1 
+    }
+  }
 }
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+  90deg,
+  transparent 0%,
+  rgba(255,255,255,0.3),
+  rgba(255,255,255,0.7),
+  rgba(255,255,255,0.3),
+  transparent 100%
+  );
+  transform: translateX(-100%) scaleX(1.5);
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.scrollbar-hidden {
+  -ms-overflow-style: none; /* IE & Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+/* .material-symbols-outlined {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+
+  display: inline-block;
+  line-height: 1;
+  white-space: nowrap;
+
+  -webkit-font-smoothing: antialiased;
+} */
+
+.fonts-loaded .material-symbols-outlined {
+  opacity: 1;
+}
+
+

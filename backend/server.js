@@ -2,10 +2,21 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import userRoutes from "./routes/userRoutes.js";
-import dashboardRoutes from "./routes/dashboardRoutes.js";
 import attendanceLogRoutes from "./routes/attendanceLogRoutes.js";
 import leaveTypeRoutes from "./routes/leaveTypeRoutes.js";
+import leaveRequestRoutes from "./routes/leaveRequestRoutes.js";
+import leaveApprovalRoutes from "./routes/leaveApprovalRoutes.js";
+import attenndanceCorrectionRoutes from "./routes/attendanceCorrectionRoutes.js";
+import correctionApprovalRoutes from "./routes/correctionApprovalRoutes.js";
+import calendarRoutes from "./routes/calendarRoutes.js";
+import overtimeRoutes from "./routes/overtimeRoutes.js";
+import overtimeApprovalRoutes from "./routes/overtimeApprovalRoutes.js";
+import attendanceReportRoutes from "./routes/attendanceReportRoutes.js";
+import leaveUsageRoutes from "./routes/leaveUsageRoutes.js";
+import updateDataRoutes from "./routes/updateDataRoutes.js";
 import cookieParser from "cookie-parser";
+import { startAttendanceCron } from "./jobs/attendanceCron.js";
+import { startOvertimeCron } from "./jobs/overtimeCron.js";
 
 dotenv.config();
 
@@ -31,19 +42,33 @@ app.use(
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
     methods: ["GET", "POST", "PUT", "DELETE"],
-  })
+  }),
 );
 
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ limit: "1mb", extended: true }));
 
 app.use("/api/users", userRoutes);
-app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/attendanceLog", attendanceLogRoutes);
+app.use("/api/attendanceReport", attendanceReportRoutes);
 app.use("/api/leaveType", leaveTypeRoutes);
+app.use("/api/leaveRequest", leaveRequestRoutes);
+app.use("/api/leaveApproval", leaveApprovalRoutes);
+app.use("/api/attendanceCorrection", attenndanceCorrectionRoutes);
+app.use("/api/correctionApproval", correctionApprovalRoutes);
+app.use("/api/holiday", calendarRoutes);
+app.use("/api/overtime", overtimeRoutes);
+app.use("/api/overtimeApproval", overtimeApprovalRoutes);
+app.use("/api/leaveUsage", leaveUsageRoutes);
+app.use("/api/hadirr", updateDataRoutes);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  startAttendanceCron();
+  startOvertimeCron();
+});
 
 //SETUP SERVER DASAR (SERVER.JS)
 //KONEKSI KE DB (DB.JS) + ENV

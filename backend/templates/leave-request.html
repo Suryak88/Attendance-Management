@@ -1,0 +1,104 @@
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+
+  <body>
+    <div class="break-after-page px-2">
+      <div class="flex items-center justify-center mt-3 mb-6">
+        <h2
+          class="flex self-center justify-center text-center text-xl font-medium underline"
+        >
+          Surat Permohonan Cuti
+        </h2>
+      </div>
+
+      <div class="flex flex-col text-base">
+        <div>
+          <p>Yang bertanda tangan di bawah ini:</p>
+        </div>
+        <div class="flex gap-2 ml-10 mt-1.5">
+          <div class="min-w-40">
+            <p>Nama</p>
+          </div>
+          <div>
+            <p>:</p>
+          </div>
+          <div>
+            <p>{{nama}}</p>
+          </div>
+        </div>
+        <div class="flex gap-2 ml-10">
+          <div class="min-w-40">
+            <p>Jabatan</p>
+          </div>
+          <div>
+            <p>:</p>
+          </div>
+          <div>
+            <p>{{jabatan}}</p>
+          </div>
+        </div>
+        <div class="flex gap-2 ml-10">
+          <div class="min-w-40">
+            <p>Alasan Cuti</p>
+          </div>
+          <div>
+            <p>:</p>
+          </div>
+          <div>
+            <p>{{alasan}}</p>
+          </div>
+        </div>
+        <div class="flex gap-2 ml-10 mb-1.5">
+          <div class="min-w-40">
+            <p>Tanggal Cuti Mulai</p>
+          </div>
+          <div>
+            <p>:</p>
+          </div>
+          <div>
+            <p>{{tgl1}}</p>
+          </div>
+          <div>
+            <p>s/d</p>
+          </div>
+          <div>
+            <p>{{tgl2}}</p>
+          </div>
+          <div>
+            <p>({{durasi}} hari)</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p>
+          Demikianlah Surat Permohonan Cuti ini saya buat. Atas kerjasamanya
+          saya ucapkan terima kasih.
+        </p>
+      </div>
+      <div class="flex flex-1 mt-5 justify-around">
+        <div class="flex flex-col justify-center items-center gap-y-20">
+          <p>Menyetujui</p>
+          <div class="flex gap-25">
+            <p>(</p>
+            <p>)</p>
+          </div>
+        </div>
+        <div class="flex flex-col justify-center items-center gap-y-20">
+          <p>Mengetahui</p>
+          <div class="flex gap-25">
+            <p>(</p>
+            <p>)</p>
+          </div>
+        </div>
+        <div class="flex flex-col justify-center items-center gap-y-20">
+          <p>Pemohon</p>
+          <div class="flex gap-25">
+            <p>( {{pemohon}} )</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

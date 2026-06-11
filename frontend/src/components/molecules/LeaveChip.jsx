@@ -1,5 +1,6 @@
 import { useState, useEffect, memo } from "react";
 import { useLeaveModal } from "../../context/LeaveTypeContext";
+import { Pencil, Trash2 } from "lucide-react";
 
 const LeaveChip = ({ item, isActive, setActiveChipId, canHover }) => {
   const { editModal, deleteModal } = useLeaveModal();
@@ -35,11 +36,14 @@ const LeaveChip = ({ item, isActive, setActiveChipId, canHover }) => {
             canHover
               ? "group-hover:bg-slate-200 group-hover:opacity-100 opacity-0 pointer-events-auto"
               : isActive
-              ? "bg-slate-200 opacity-100 text-blue-600 border-r border-slate-300 pointer-events-auto"
-              : "opacity-0 pointer-events-none"
+                ? "bg-slate-200 opacity-100 text-blue-600 border-r border-slate-300 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
           }`}
         >
-          <span className="material-symbols-outlined select-none">edit</span>
+          {/* <span className="material-symbols-outlined select-none">edit</span> */}
+          <span>
+            <Pencil className="size-5 select-none" />
+          </span>
         </div>
 
         <div
@@ -48,15 +52,18 @@ const LeaveChip = ({ item, isActive, setActiveChipId, canHover }) => {
             canHover
               ? "group-hover:bg-slate-300 group-hover:opacity-100 opacity-0 pointer-events-auto"
               : isActive
-              ? "bg-slate-200 opacity-100 text-red-500 pointer-events-auto"
-              : "group-hover:bg-slate-300 group-hover:opacity-100 pointer-events-none"
+                ? "bg-slate-200 opacity-100 text-red-500 pointer-events-auto"
+                : "group-hover:bg-slate-300 group-hover:opacity-100 pointer-events-none"
           }`}
           onClick={(e) => {
             e.stopPropagation();
             deleteModal(item);
           }}
         >
-          <span className="material-symbols-outlined select-none">delete</span>
+          {/* <span className="material-symbols-outlined select-none">delete</span> */}
+          <span>
+            <Trash2 className="size-5 select-none" />
+          </span>
         </div>
       </span>
     </>

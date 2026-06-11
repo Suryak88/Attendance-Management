@@ -3,6 +3,7 @@ import Header from "../../organisms/Header";
 import Sidebar from "../../organisms/Sidebar";
 import Dashboard from "../../../pages/Dashboard";
 import { Outlet } from "react-router-dom";
+import { ChevronsLeft } from "lucide-react";
 
 export default function MainLayout() {
   const [isExpand, setIsExpand] = useState(false);
@@ -23,14 +24,20 @@ export default function MainLayout() {
               className="fixed inset-0 bg-black/40 z-30 lg:hidden flex"
               onClick={() => setIsExpand(false)}
             >
-              <div className="ml-54 my-auto">
-                <span
+              <div className="ml-55 md:ml-56 my-auto">
+                {/* <span
                   className={`material-symbols-outlined relative rounded-full cursor-pointer p-2 animate-bounce-Left text-white ${
                     isExpand ? "md:visible" : "md:invisible"
                   }`}
                   onClick={handleExpand}
                 >
                   keyboard_double_arrow_left
+                </span> */}
+                <span
+                  className={`relative p-2 ${isExpand ? "md:visible" : "md:invisible"}`}
+                  onClick={handleExpand}
+                >
+                  <ChevronsLeft className="animate-bounce-Left cursor-pointer text-white " />
                 </span>
               </div>
             </div>

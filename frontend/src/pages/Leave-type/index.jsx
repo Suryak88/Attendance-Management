@@ -1,16 +1,20 @@
 import { useContext, useEffect, useState, useMemo, useCallback } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import api from "../../utils/axiosInstance";
-import { useCategoryStore } from "../../store/useLeaveCategoryStore";
+import { useLeaveTypeStore } from "../../store/useLeaveTypeStore";
 import { useModal } from "../../hooks/useModal";
 import { LeaveTypeModalContext } from "../../context/LeaveTypeContext";
 import LeaveTypeModal from "../../components/organisms/Modal/LeaveTypeModal";
 import CategoryCard from "../../components/organisms/CategoryCard";
 import { useCanHover } from "../../hooks/useCanHover";
+import Masonry from "react-masonry-css";
+import { Plus } from "lucide-react";
 
 export default function LeaveType() {
   const { user } = useContext(AuthContext);
-  const [types, setTypes] = useState([]);
+  // const [types, setTypes] = useState([]);
+  const types = useLeaveTypeStore((s) => s.leaveTypes);
+  const fetchLeaveTypes = useLeaveTypeStore((s) => s.fetchLeaveTypes);
   const [form, setForm] = useState({
     id: null,
     name: "",
@@ -47,17 +51,17 @@ export default function LeaveType() {
 
   const modal = useModal(resetForm);
   const { open, mode, openModal, close, showSuccess } = modal;
-  const setCategories = useCategoryStore((s) => s.setCategories);
+  // const setCategories = useCategoryStore((s) => s.setCategories);
   const [errorMsg, setErrorMsg] = useState("");
 
-  async function fetchLeaveTypes() {
-    try {
-      const res = await api.get("/leaveType/LT");
-      setTypes(res.data);
-    } catch (error) {
-      console.error(error);
-    }
-  }
+  // async function fetchLeaveTypes() {
+  //   try {
+  //     const res = await api.get("/leaveType/LT");
+  //     setTypes(res.data);
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // }
 
   useEffect(() => {
     if (!user) return;
@@ -66,9 +70,9 @@ export default function LeaveType() {
 
   const grouped = useMemo(() => groupByCategory(types), [types]);
 
-  useEffect(() => {
-    setCategories(Object.keys(grouped));
-  }, [types]);
+  // useEffect(() => {
+  //   setCategories(Object.keys(grouped));
+  // }, [types]);
 
   function handleCreate(e) {
     e.preventDefault();
@@ -107,7 +111,7 @@ export default function LeaveType() {
     try {
       await action();
       fetchLeaveTypes();
-      showSuccess(7300);
+      showSuccess();
     } catch (error) {
       if (error.response?.status === 409) {
         setErrorMsg("Leave type already exists!");
@@ -133,17 +137,20 @@ export default function LeaveType() {
   return (
     <>
       <LeaveTypeModalContext.Provider value={modal}>
-        <div className="flex flex-col flex-1 bg-slate-100 p-4 md:p-6">
+        <div className="flex flex-col flex-1 bg-slate-100 p-4 md:p-4">
           <div className="flex justify-between mb-6">
-            <h3 className="text-2xl font-semibold text-slate-800">
+            <h3 className="text-xl md:text-2xl font-semibold text-slate-800">
               Leave Type
             </h3>
             <button
-              className="bg-slate-50 rounded-lg shadow-sm border border-slate-200 px-3 pt-1 hover:shadow-md cursor-pointer"
+              className="bg-slate-50 rounded-lg shadow-sm border border-slate-200 px-2 pt-1 hover:shadow-md cursor-pointer flex gap-1"
               onClick={openModal}
             >
-              <span className="material-symbols-outlined align-middle leading-none pr-1 text-2xl! pb-1">
+              {/* <span className="material-symbols-outlined align-middle leading-none pr-1 text-2xl! pb-1">
                 add
+              </span> */}
+              <span>
+                <Plus />
               </span>
               Add
             </button>
@@ -161,7 +168,7 @@ export default function LeaveType() {
             />
           </div>
 
-          <div className="columns-1 md:columns-2 gap-6">
+          {/* <div className="columns-1 md:columns-2 gap-6">
             {Object.keys(grouped).map((cat) => (
               <div key={cat} className="break-inside-avoid mb-6">
                 <CategoryCard
@@ -173,7 +180,25 @@ export default function LeaveType() {
                 />
               </div>
             ))}
-          </div>
+          </div> */}
+
+          <Masonry
+            breakpointCols={{ default: 2, 768: 1 }}
+            className="flex gap-6"
+            columnClassName="flex flex-col gap-6"
+          >
+            {Object.keys(grouped).map((cat) => (
+              <div key={cat} className="">
+                <CategoryCard
+                  title={cat}
+                  items={grouped[cat]}
+                  activeChipId={activeChipId}
+                  setActiveChipId={setActiveChipId}
+                  canHover={canHover}
+                />
+              </div>
+            ))}
+          </Masonry>
         </div>
       </LeaveTypeModalContext.Provider>
     </>

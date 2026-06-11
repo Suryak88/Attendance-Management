@@ -1,0 +1,235 @@
+// function formatMySQLTime(date) {
+//   if (!date) return null;
+//   const d = new Date(date);
+//   return d.toTimeString().split(" ")[0]; // HH:MM:SS
+// }
+
+function formatMySQLTime(mysqlDatetime) {
+  if (!mysqlDatetime) return "";
+  return mysqlDatetime.slice(11, 19);
+}
+
+function isoUtcToMySQLLocal(isoString) {
+  if (!isoString) return null;
+
+  const d = new Date(isoString); // UTC
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
+function isoUTCToTime(isoString) {
+  const dateTime = isoUtcToMySQLLocal(isoString);
+  return formatMySQLTime(dateTime);
+}
+
+function calculateWorkDuration(checkIn, checkOut) {
+  if (!checkIn || !checkOut) return 0;
+
+  const start = new Date(checkIn);
+  const end = new Date(checkOut);
+
+  let diffMs = end - start;
+
+  if (diffMs <= 0) return 0;
+
+  let diffHours = diffMs / (1000 * 60 * 60) - 1;
+
+  // potong 1 jam kalau kerja >= 5 jam
+  // if (diffHours >= 5) {
+  //   diffHours -= 1;
+  // }
+
+  return diffHours;
+}
+
+function mergeTimeToDate(date, hhmm) {
+  if (!date || !hhmm) return null;
+
+  const [h, m] = hhmm.split(":").map(Number);
+
+  // date diasumsikan Date object dari date picker
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+
+  const hh = String(h).padStart(2, "0");
+  const min = String(m).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:00`;
+}
+
+function formatDateIndo(date, withDay = "") {
+  if (!date) return null;
+
+  const d = new Date(date);
+
+  return d.toLocaleDateString(
+    "id-ID",
+    withDay
+      ? {
+          weekday: `${withDay}`,
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }
+      : {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        },
+  );
+}
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toDateOnly(date) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
+function calculateLeaveDaysExcludeSunday(startDate, endDate) {
+  if (!startDate || !endDate) return "";
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
+  if (end < start) return "";
+
+  let days = 0;
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    const day = cursor.getDay(); // 0 = Sunday
+    if (day !== 0) {
+      days++;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
+
+function formatDateFromPicker(date) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear());
+
+  return `${day}/${month}/${year}`;
+}
+
+function parseSmartDate(input) {
+  // if (input == "") return "";
+  // if (parseInt(input) < 1) return input;
+  if (!input) return "";
+  if (typeof input !== "string") return "";
+
+  const digits = input.replace(/\D/g, "").slice(0, 8);
+
+  const now = new Date();
+  const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+  const currentYear = String(now.getFullYear());
+
+  let day = "01";
+  let month = currentMonth;
+  let year = currentYear;
+
+  // DAY
+  if (digits.length >= 1) {
+    day = digits.slice(0, 2).padStart(2, "0");
+  }
+
+  // MONTH
+  if (digits.length >= 3) {
+    month = digits.slice(2, 4).padStart(2, "0");
+  }
+
+  // YEAR
+  if (digits.length >= 5) {
+    const yearPart = digits.slice(4);
+
+    if (yearPart.length <= 2) {
+      year = `20${yearPart.padStart(2, "0")}`;
+    } else {
+      year = yearPart.padStart(4, "0");
+    }
+  }
+
+  const normalized = normalizeDateParts(day, month, year);
+  return `${normalized.day}/${normalized.month}/${normalized.year}`;
+}
+
+function normalizeDateParts(day, month, year) {
+  let d = Number(day);
+  let m = Number(month);
+  let y = Number(year);
+
+  // MONTH max 12
+  if (m < 1) m = 1;
+  if (m > 12) m = 12;
+
+  // max day per month
+  const maxDay = new Date(y, m, 0).getDate();
+  if (d < 1) d = 1;
+  if (d > maxDay) d = maxDay;
+
+  return {
+    day: String(d).padStart(2, "0"),
+    month: String(m).padStart(2, "0"),
+    year: String(y),
+  };
+}
+
+function minuteConvert(time) {
+  const timeHours = Math.floor(time / 60);
+  const minutes = time % 60;
+
+  if (timeHours > 0 && minutes > 0) return `${timeHours}h ${minutes}m`;
+  if (timeHours > 0 && minutes === 0) return `${timeHours}h`;
+  // return timeHours > 0 ? `${timeHours}h ${minutes}m` : `${minutes}m`;
+  return `${minutes}m`;
+}
+
+function getDatesBetween(startDate, endDate) {
+  const dates = [];
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (start <= end) {
+    dates.push(formatLocalDate(new Date(start)));
+    start.setDate(start.getDate() + 1);
+  }
+
+  return dates;
+}
+
+export {
+  formatMySQLTime,
+  isoUtcToMySQLLocal,
+  isoUTCToTime,
+  calculateWorkDuration,
+  mergeTimeToDate,
+  formatDateIndo,
+  formatLocalDate,
+  toDateOnly,
+  calculateLeaveDaysExcludeSunday,
+  formatDateFromPicker,
+  parseSmartDate,
+  minuteConvert,
+  getDatesBetween,
+};

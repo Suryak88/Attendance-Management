@@ -11,63 +11,80 @@ export function useModal(onResetForm) {
       timerRef.current = null;
     }
   };
+
+  const openWithMode = useCallback(
+    (mode, data = null) => {
+      clearTimer();
+      setMode(mode);
+      setOpen(true);
+      if (onResetForm && data) {
+        onResetForm(data);
+      }
+    },
+    [onResetForm],
+  );
+
   const close = useCallback(() => {
     setOpen(false);
 
     clearTimer();
-    if (onResetForm) onResetForm();
 
     setTimeout(() => {
       setMode("form");
+      if (onResetForm) onResetForm();
     }, 300);
   }, [onResetForm]);
 
   const openModal = useCallback(() => {
-    clearTimer();
-    setMode("form");
-    if (onResetForm) onResetForm();
-    setOpen(true);
-  }, [onResetForm]);
+    // clearTimer();
+    // setMode("form");
+    // if (onResetForm) onResetForm();
+    // setOpen(true);
+    openWithMode("form");
+  }, [openWithMode]);
 
   const editModal = useCallback(
     (data) => {
-      clearTimer();
-      setMode("edit");
-      setOpen(true);
-
-      if (onResetForm && data) {
-        onResetForm(data);
-      }
+      //   clearTimer();
+      //   setMode("edit");
+      //   setOpen(true);
+      //   if (onResetForm && data) {
+      //     onResetForm(data);
+      //   }
+      openWithMode("edit", data);
     },
-    [onResetForm]
+    [openWithMode],
   );
 
   const deleteModal = useCallback(
     (data) => {
-      setMode("confirm");
-      setOpen(true);
+      // setMode("confirm");
+      // setOpen(true);
 
-      if (onResetForm && data) {
-        onResetForm(data);
-      }
+      // if (onResetForm && data) {
+      //   onResetForm(data);
+      // }
+      openWithMode("confirm", data);
     },
-    [onResetForm]
+    [openWithMode],
   );
 
   const showSuccess = useCallback(
-    (duration = 7000) => {
+    (duration = 3000) => {
       clearTimer();
+      setOpen(true);
       setMode("success");
 
       timerRef.current = setTimeout(() => {
         close();
       }, duration);
     },
-    [close]
+    [close],
   );
 
   return useMemo(
     () => ({
+      openWithMode,
       open,
       mode,
       openModal,
@@ -76,6 +93,15 @@ export function useModal(onResetForm) {
       close,
       showSuccess,
     }),
-    [open, mode, openModal, editModal, deleteModal, close, showSuccess]
+    [
+      openWithMode,
+      open,
+      mode,
+      openModal,
+      editModal,
+      deleteModal,
+      close,
+      showSuccess,
+    ],
   );
 }

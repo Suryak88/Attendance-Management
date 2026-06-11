@@ -8,6 +8,7 @@ const dbAbsensi = mysql.createPool({
   user: process.env.DB_ABS_USER,
   password: process.env.DB_ABS_PASS,
   database: process.env.DB_ABS_NAME,
+  dateStrings: true,
 });
 
 export default dbAbsensi;
