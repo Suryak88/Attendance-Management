@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getValidHadirrToken } from "./authHadirr.js";
 
-export async function requestHadirrAttendance(date, group) {
+export async function fetchSalesAttendance(date, group) {
   const token = await getValidHadirrToken(group);
 
   const response = await axios.get(
