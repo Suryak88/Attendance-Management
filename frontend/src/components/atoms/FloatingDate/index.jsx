@@ -220,6 +220,7 @@ export default function FloatingDate({
   const dismiss = useDismiss(context, {
     outsidePress: true,
     escapeKey: true,
+    ancestorScroll: true,
   });
 
   const { getReferenceProps, getFloatingProps } = useInteractions([dismiss]);
