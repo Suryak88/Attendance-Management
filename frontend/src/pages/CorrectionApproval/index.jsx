@@ -456,7 +456,7 @@ export default function CorrectionApproval() {
                 <BtnLoading label={"Processing"} />
               </div>
             ) : (
-              <div className="my-0.5">
+              <div>
                 Approve {checkedIds.length}{" "}
                 {checkedIds.length > 1 ? "Requests" : "Request"}
               </div>

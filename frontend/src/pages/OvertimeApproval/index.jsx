@@ -336,7 +336,7 @@ export default function OvertimeApproval() {
                   <BtnLoading label={"Processing"} />
                 </div>
               ) : (
-                <div className="my-0.5">
+                <div>
                   Approve {checkedIds.length}{" "}
                   {checkedIds.length > 1 ? "Overtimes" : "Overtime"}
                 </div>

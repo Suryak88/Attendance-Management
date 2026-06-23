@@ -8,7 +8,7 @@ export default function BtnLoading({ label }) {
   return (
     <div className="flex w-full items-center justify-around">
       {label}
-      <svg height={radius * 2} width={radius * 2} className="my-1 animate-spin">
+      <svg height={radius * 2} width={radius * 2} className="animate-spin">
         <circle
           className="text-sky-200"
           stroke={"currentColor"}

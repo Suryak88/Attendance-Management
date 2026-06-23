@@ -150,7 +150,7 @@ export default function UpdateData() {
                     <BtnLoading label={"Updating "} />
                   </div>
                 ) : (
-                  <div className="flex w-full my-0.5 justify-center">
+                  <div className="flex w-full justify-center">
                     Update Data Sales
                   </div>
                 )}
@@ -165,7 +165,7 @@ export default function UpdateData() {
                     <BtnLoading label={"Updating "} />
                   </div>
                 ) : (
-                  <div className="flex w-full my-0.5 justify-center">
+                  <div className="flex w-full justify-center">
                     Update Data Collector
                   </div>
                 )}

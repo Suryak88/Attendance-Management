@@ -288,7 +288,7 @@ export default function AttendanceCorrection() {
                 btndisable={submitLoader.loading}
                 btnLabel={
                   submitLoader.loading ? (
-                    <div className="my-0.5">
+                    <div className="my-1.5">
                       <BtnLoading />
                     </div>
                   ) : (

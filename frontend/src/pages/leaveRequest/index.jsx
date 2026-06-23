@@ -500,7 +500,7 @@ export default function LeaveRequest() {
                   btndisable={submitLoader.loading}
                   btnLabel={
                     submitLoader.loading ? (
-                      <div className="my-0.5">
+                      <div className="my-1.5">
                         <BtnLoading />
                       </div>
                     ) : (
@@ -1039,7 +1039,7 @@ export default function LeaveRequest() {
                           pdfLoader.loading ? (
                             <BtnLoading label={"Downloading PDF"} />
                           ) : (
-                            <div className="my-0.5">Download PDF</div>
+                            <div>Download PDF</div>
                           )
                         }
                         btnWidth="w-36 px-1!"

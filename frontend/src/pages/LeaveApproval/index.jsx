@@ -546,7 +546,7 @@ export default function LeaveApproval() {
                   <BtnLoading label={"Processing"} />
                 </div>
               ) : (
-                <div className="my-0.5">
+                <div>
                   Approve {checkedIds.length}{" "}
                   {checkedIds.length > 1 ? "Requests" : "Request"}
                 </div>
@@ -1051,7 +1051,7 @@ export default function LeaveApproval() {
                             pdfLoader.loading ? (
                               <BtnLoading label={"Downloading"} />
                             ) : (
-                              <div className="my-0.5">Download PDF</div>
+                              <div>Download PDF</div>
                             )
                           }
                           btnWidth="w-35 px-1!"
