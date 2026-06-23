@@ -66,10 +66,12 @@ export default function ReportWidget({
             )}
           </div>
           <div className="flex gap-1 -mt-1 items-end justify-center text-slate-600">
-            <p className="text-2xl -mt-1 lg:mt-0 font-semibold text-slate-600">
+            <p className="text-lg md:text-2xl -mt-1 lg:mt-0 font-semibold text-slate-600 text-nowrap">
               {dataHead}
             </p>
-            {dataAll && <p className="font-medium text-sm">/{dataAll}</p>}
+            {dataAll && (
+              <p className="font-medium text-sm text-nowrap">/{dataAll}</p>
+            )}
             <p className="font-medium text-sm">{unit}</p>
             {info && (
               <div className="flex self-end">
