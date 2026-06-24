@@ -9,6 +9,8 @@ import { leaveLogging } from "../utils/leaveLogging.js";
 import { formatLocalDate } from "../utils/date.js";
 import { getBrowser } from "../services/pdfService.js";
 import { runWithLimit } from "../services/concurrency.js";
+import { authorityChecking } from "../services/authorityService.js";
+import { buildLatePenalty } from "../utils/buildLatePenalty.js";
 
 export async function getLog(req, res) {
   const loginRegnum = req.user.regnum;
@@ -729,6 +731,45 @@ export async function fetchCloseAttendanceStatus(req, res) {
   } catch (error) {
     await conn.rollback();
     console.log(error);
+    res.status(500).json({ message: error.message });
+  } finally {
+    conn.release();
+  }
+}
+
+export async function showLatePenalty(req, res) {
+  const conn = await dbAbsensi.getConnection();
+
+  const loginRegnum = req.user.regnum;
+  const { startDate, endDate, targetRegnum } = req.query;
+
+  let effectiveRegnum = loginRegnum;
+
+  if (targetRegnum === "all") {
+    effectiveRegnum = 0;
+  } else if (targetRegnum !== undefined && targetRegnum !== "") {
+    effectiveRegnum = Number(targetRegnum);
+  }
+
+  try {
+    if (effectiveRegnum !== loginRegnum && effectiveRegnum !== 0) {
+      await authorityChecking(conn, targetRegnum, loginRegnum);
+    }
+
+    const [[logs]] = await conn.query("CALL khabsensi_user(?, ?, ?, ?, ?)", [
+      loginRegnum,
+      effectiveRegnum,
+      startDate,
+      endDate,
+      0,
+    ]);
+
+    const [rules] = await conn.query("SELECT * FROM m_attendance_penalty");
+
+    const result = buildLatePenalty(logs, rules);
+
+    res.json(result);
+  } catch (error) {
     res.status(500).json({ message: error.message });
   } finally {
     conn.release();
