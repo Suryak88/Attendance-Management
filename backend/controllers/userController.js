@@ -41,7 +41,7 @@ export async function loginUser(req, res) {
     }
 
     const [[data]] = await dbAbsensi.query(
-      "SELECT namalengkap, role FROM reg_person WHERE regnum = ?",
+      "SELECT namalengkap, role, is_penalty_enabled FROM reg_person WHERE regnum = ?",
       [user.regnum],
     );
 
@@ -79,6 +79,7 @@ export async function loginUser(req, res) {
         fullname: data.namalengkap,
         regnum: user.regnum,
         role: data.role,
+        penalty: data.is_penalty_enabled,
       },
     });
   } catch (error) {
