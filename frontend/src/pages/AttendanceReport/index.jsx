@@ -873,18 +873,18 @@ export default function AttendanceReport() {
           >
             {pdfLoader.loading ? <BtnLoading /> : <div>Download PDF</div>}
           </button>
-          {user?.penalty === 1 && (
-            <button
-              className="mx-2 my-1 px-2 py-1 bg-slate-100 rounded-full shadow-sm font-medium text-xs lg:text-sm outline-1 cursor-pointer transition-all outline-slate-400 hover:text-black/60 hover:outline-slate-500 hover:shadow-md disabled:text-black/40"
-              onClick={() => {
-                openWithMode("latePenalty");
-                fetchAttendancePenalty();
-              }}
-              disabled={pdfLoader.loading}
-            >
-              Attendance Penalty
-            </button>
-          )}
+          {/* {user?.penalty === 1 && ( */}
+          <button
+            className="mx-2 my-1 px-2 py-1 bg-slate-100 rounded-full shadow-sm font-medium text-xs lg:text-sm outline-1 cursor-pointer transition-all outline-slate-400 hover:text-black/60 hover:outline-slate-500 hover:shadow-md disabled:text-black/40"
+            onClick={() => {
+              openWithMode("latePenalty");
+              fetchAttendancePenalty();
+            }}
+            disabled={pdfLoader.loading}
+          >
+            Attendance Penalty
+          </button>
+          {/* )} */}
         </div>
         <div className="flex bg-slate-300 text-slate-600 p-2 mx-1 rounded-2xl font-bold">
           {reportColumns.map((col) => (
