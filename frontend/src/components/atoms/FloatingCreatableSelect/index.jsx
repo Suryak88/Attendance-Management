@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function FloatingCreatableSelect({
   id,
@@ -13,6 +13,19 @@ export default function FloatingCreatableSelect({
   const [touched, setTouched] = useState(false);
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  const containerRef = useRef(null);
+  const [openUpward, setOpenUpward] = useState(false);
+
+  useEffect(() => {
+    if (!open || !containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropdownHeight = 220;
+
+    setOpenUpward(spaceBelow < dropdownHeight);
+  }, [open]);
 
   useEffect(() => {
     if (value) setFilter(value);
@@ -38,7 +51,10 @@ export default function FloatingCreatableSelect({
   }
 
   return (
-    <div className="relative mb-4 lg:mb-6 w-full lg:w-fit">
+    <div
+      ref={containerRef}
+      className="ignore-popup-close relative mb-2 lg:mb-3 w-full"
+    >
       <input
         id={id}
         name={id}
@@ -51,7 +67,7 @@ export default function FloatingCreatableSelect({
         }}
         onFocus={() => setOpen(true)}
         onBlur={handleBlur}
-        className={`peer w-full lg:w-80 mx-auto ${inputFontSize} ${border} mt-2 rounded-lg bg-transparent p-2 text-gray-900 placeholder-transparent focus:outline-none  ${
+        className={`peer w-full mx-auto ${inputFontSize} ${border} mt-2 rounded-lg bg-transparent p-2 text-gray-900 placeholder-transparent focus:outline-none  ${
           isError
             ? "border-red-500 focus:border-red-500"
             : "border-gray-800 focus:border-blue-600"
@@ -83,7 +99,12 @@ export default function FloatingCreatableSelect({
       </p> */}
 
       {open && (
-        <ul className="absolute z-50 bg-slate-100 border border-gray-200 rounded-md mt-1 w-full max-h-40 overflow-auto shadow">
+        <ul
+          className={`absolute z-50 bg-slate-100 border border-gray-200 rounded-md mt-1 w-full max-h-40 overflow-auto shadow transition-all duration-200 ease-in-out
+        ${openUpward ? "bottom-full" : "top-full"}
+        ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}
+        `}
+        >
           {filteredOptions.length > 0 ? (
             filteredOptions.map((opt, i) => (
               <li

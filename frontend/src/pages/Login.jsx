@@ -60,7 +60,7 @@ export default function LoginPage() {
           <div className="w-full lg:w-fit ">
             <ModalPanel title={"Welcome back!"}>
               <FormContent onSubmit={handleLogin} btnLabel={"Log In"}>
-                <div className="w-full md:w-1/2 lg:w-fit">
+                <div className="w-full md:w-1/2 lg:w-80">
                   <div className="flex flex-col gap-4">
                     <FloatingInput
                       id="username"

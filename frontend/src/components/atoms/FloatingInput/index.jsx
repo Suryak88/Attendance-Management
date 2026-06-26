@@ -21,7 +21,7 @@ export default function FloatingInput({
   const isError = isExternalError || (touched && value.trim() === "");
 
   return (
-    <div className="relative w-full lg:w-fit">
+    <div className="relative w-full">
       <input
         type={type}
         id={id}
@@ -31,7 +31,7 @@ export default function FloatingInput({
         onChange={(e) => onValueChange(e.target.value)}
         onBlur={() => setTouched(true)}
         autoComplete={autoComplete}
-        className={`peer w-full lg:w-80 mx-auto ${inputFontSize} font-semibold ${border} mt-2 rounded-lg bg-transparent py-2 px-2 text-gray-900 placeholder-transparent focus:outline-none  ${
+        className={`peer w-full mx-auto ${inputFontSize} font-semibold ${border} mt-2 rounded-lg bg-transparent py-2 px-2 text-gray-900 placeholder-transparent focus:outline-none  ${
           isError
             ? "border-red-500 focus:border-red-500"
             : "border-gray-800 focus:border-blue-600"

@@ -295,7 +295,7 @@ export default function Header({ isExpand, handleExpand }) {
         <Modal openModal={open} onClose={close}>
           {mode === "ChangePw" && (
             <ModalPanel title={"Change Password"} handleClose={close}>
-              <div className="flex flex-col">
+              <div className="flex flex-col lg:w-80">
                 <div className="flex flex-col px-2 pb-2">
                   <FloatingInput
                     id="Current Password"
