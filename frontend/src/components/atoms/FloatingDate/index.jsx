@@ -28,6 +28,7 @@ export default function FloatingDate({
   borderColorDefault = "border-black",
   fontThickness = "font-semibold",
   inputFontSize = "text-base",
+  dropdown,
 }) {
   // const [displayValue, setDisplayValue] = useState("");
   // const [selectedDate, setSelectedDate] = useState(null);
@@ -354,6 +355,7 @@ export default function FloatingDate({
               setIsCalendarOpen(false);
               setIsActive(false);
             }}
+            captionLayout={dropdown}
           />
         </div>
       </FloatingPortal>
