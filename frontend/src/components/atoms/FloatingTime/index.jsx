@@ -31,9 +31,10 @@ export default function FloatingTime({
   const isClosingRef = useRef(false);
   const safeDisplayValue = displayValue ?? "";
   const isError =
-    isExternalError ||
-    (touched && safeDisplayValue.trim() === "") ||
-    (touched && parseInt(safeDisplayValue) <= 0);
+    (isExternalError ||
+      (touched && safeDisplayValue.trim() === "") ||
+      (touched && parseInt(safeDisplayValue) <= 0)) &&
+    isDisable === false;
   const hours = Array.from({ length: 24 }, (_, i) =>
     String(i).padStart(2, "0"),
   );
@@ -305,7 +306,7 @@ export default function FloatingTime({
             ? "border-red-500"
             : isActive
               ? "border-blue-600"
-              : "border-gray-800 disabled:border-gray-500"
+              : "border-gray-800 disabled:border-slate-400"
         }`}
         required
         autoComplete="off"
@@ -344,7 +345,7 @@ export default function FloatingTime({
       <label
         htmlFor={id}
         className={`absolute left-3 bg-slate-100 px-1 text-md transition-all duration-200 first-letter:uppercase select-none ${
-          isDisable ? "text-slate-500" : ""
+          isDisable ? "text-slate-400" : ""
         }
                      ${
                        safeDisplayValue
