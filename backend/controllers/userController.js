@@ -66,10 +66,7 @@ export async function loginUser(req, res) {
       secure: false,
       sameSite: "lax",
       path: "/",
-      // domain: "localhost",
-      // secure: true,
-      // sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 2 * 24 * 60 * 60 * 1000,
     });
 
     res.json({
