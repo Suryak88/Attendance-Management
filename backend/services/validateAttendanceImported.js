@@ -1,19 +1,17 @@
 import { BusinessError } from "../errors/BusinessError.js";
+import { getLastAttendanceImported } from "./getLastAttendanceImported.js";
 
 export async function validateAttendanceImported(conn, tgl) {
-  const [[dataSynced]] = await conn.query(
-    `SELECT MAX(imported_until) AS lastSynced 
-    FROM attendance_import_batch`,
-  );
+  const importedUntill = await getLastAttendanceImported(conn);
 
-  if (!dataSynced.lastSynced) {
+  if (!importedUntill) {
     throw new BusinessError(
       "ATTENDANCE_IMPORT_STATUS_UNKNOWN",
       "Status import absensi belum tersedia",
     );
   }
 
-  if (tgl > dataSynced.lastSynced) {
+  if (new Date(tgl) > new Date(importedUntill)) {
     throw new BusinessError(
       "ATTENDANCE_NOT_IMPORTED_YET",
       "Data absensi tanggal tersebut belum diimport",

@@ -2,6 +2,7 @@ import { authorityChecking } from "./authorityService.js";
 import { validateRangeNotClosed } from "../utils/validateNotClosed.js";
 import { BusinessError } from "../errors/BusinessError.js";
 import { validateAttendanceImported } from "./validateAttendanceImported.js";
+import { getLastAttendanceImported } from "./getLastAttendanceImported.js";
 
 export async function approveCorrection(
   conn,
@@ -14,7 +15,13 @@ export async function approveCorrection(
 ) {
   await authorityChecking(conn, request.regnum, loginRegnum);
   await validateRangeNotClosed(conn, request.regnum, request.tgl, request.tgl);
-  await validateAttendanceImported(conn, request.tgl);
+
+  const lastImported = await getLastAttendanceImported(conn);
+  const isImported = new Date(request.tgl) <= new Date(lastImported);
+
+  if (isImported) {
+    await validateAttendanceImported(conn, request.tgl);
+  }
   let finalLateExcused = 0;
   let finalEarlyLeaveExcused = 0;
 

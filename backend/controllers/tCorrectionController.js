@@ -1,6 +1,8 @@
 import dbAbsensi from "../config/dbAbsensi.js";
 import { BusinessError } from "../errors/BusinessError.js";
 import { approveCorrection } from "../services/approveCorrectionService.js";
+import { getLastAttendanceImported } from "../services/getLastAttendanceImported.js";
+import { validateAttendanceImported } from "../services/validateAttendanceImported.js";
 import { validateRangeNotClosed } from "../utils/validateNotClosed.js";
 
 export async function showCorrectionReqHistory(req, res) {
@@ -42,11 +44,21 @@ export async function addCorrection(req, res) {
 
   try {
     const regnum = req.user.regnum;
-    const { name, date, clockIn, clockOut, description } = req.body;
+    const {
+      name,
+      date,
+      clockIn,
+      clockOut,
+      description,
+      lateExcused,
+      earlyLeaveExcused,
+    } = req.body;
+    const today = new Date();
 
     await conn.beginTransaction();
 
     await validateRangeNotClosed(conn, regnum, date, date);
+    const lastImported = await getLastAttendanceImported(conn);
 
     const [[overlap]] = await conn.query(
       `SELECT COUNT(*) as total 
@@ -79,42 +91,61 @@ export async function addCorrection(req, res) {
     );
 
     const existing = rows[0];
-    const late = Math.max(
-      0,
-      Math.floor(
-        (new Date(existing?.masuk) -
-          new Date(`${date} ${existing?.jam_masuk}`)) /
-          60000,
-      ),
-    );
-    const earlyLeave = Math.max(
-      0,
-      Math.floor(
-        (new Date(`${date} ${existing?.jam_pulang}`) -
-          new Date(existing?.pulang)) /
-          60000,
-      ),
-    );
+
+    let late = 0;
+    let earlyLeave = 0;
+
+    if (existing?.masuk) {
+      late = Math.max(
+        0,
+        Math.floor(
+          (new Date(existing?.masuk) -
+            new Date(`${date} ${existing?.jam_masuk}`)) /
+            60000,
+        ),
+      );
+    }
+    if (existing?.pulang) {
+      earlyLeave = Math.max(
+        0,
+        Math.floor(
+          (new Date(`${date} ${existing?.jam_pulang}`) -
+            new Date(existing?.pulang)) /
+            60000,
+        ),
+      );
+    }
+
     let correctionType;
 
-    if (!existing?.masuk && !existing?.pulang && clockIn && clockOut) {
-      correctionType = "ISI_ABSEN_MASUK_PULANG";
-    } else if (!existing?.pulang && clockOut) {
-      correctionType = "ISI_ABSEN_PULANG";
-    } else if (!existing?.masuk && clockIn) {
-      correctionType = "ISI_ABSEN_MASUK";
-    } else {
-      if (late > 0 && earlyLeave > 0) {
+    if (new Date(date) > new Date(lastImported)) {
+      if (lateExcused && earlyLeaveExcused) {
         correctionType = "IZIN_TELAT_PULANG_CEPAT";
-      } else if (late > 0) {
+      } else if (lateExcused) {
         correctionType = "IZIN_TELAT";
-      } else if (earlyLeave > 0) {
+      } else if (earlyLeaveExcused) {
         correctionType = "IZIN_PULANG_CEPAT";
+      }
+    } else {
+      if (!existing?.masuk && !existing?.pulang && clockIn && clockOut) {
+        correctionType = "ISI_ABSEN_MASUK_PULANG";
+      } else if (!existing?.pulang && clockOut) {
+        correctionType = "ISI_ABSEN_PULANG";
+      } else if (!existing?.masuk && clockIn) {
+        correctionType = "ISI_ABSEN_MASUK";
       } else {
-        throw new BusinessError(
-          "INVALID_REQUEST",
-          "Tidak ada kondisi koreksi yang terdeteksi",
-        );
+        if (late > 0 && earlyLeave > 0) {
+          correctionType = "IZIN_TELAT_PULANG_CEPAT";
+        } else if (late > 0) {
+          correctionType = "IZIN_TELAT";
+        } else if (earlyLeave > 0) {
+          correctionType = "IZIN_PULANG_CEPAT";
+        } else {
+          throw new BusinessError(
+            "INVALID_REQUEST",
+            "Tidak ada kondisi koreksi yang terdeteksi",
+          );
+        }
       }
     }
 
@@ -439,6 +470,22 @@ export async function bulkCorrectionApprove(req, res) {
       code: "INTERNAL_SERVER_ERROR",
       message: "Terjadi kesalahan pada server",
     });
+  } finally {
+    conn.release();
+  }
+}
+
+export async function fetchLastSynced(req, res) {
+  const conn = await dbAbsensi.getConnection();
+
+  try {
+    const { date } = req.query;
+    const importedUntil = await getLastAttendanceImported(conn);
+
+    res.json(importedUntil);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
   } finally {
     conn.release();
   }

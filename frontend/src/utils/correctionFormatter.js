@@ -60,7 +60,7 @@ function getThumbnail(item) {
       return {
         label: "Izin Terlambat & Pulang Cepat",
         name: "Izin Terlambat & Pulang Cepat",
-        value: `${formatMySQLTime(item.masuk)} & ${formatMySQLTime(item.pulang)}`,
+        value: `${formatMySQLTime(item.masuk)} ${item.masuk && item.pulang ? "&" : ""} ${formatMySQLTime(item.pulang)}`,
       };
     default:
       return "-";

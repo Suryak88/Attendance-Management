@@ -26,6 +26,7 @@ import { enrichCorrection } from "../../utils/correctionFormatter";
 import FormDelete from "../../components/organisms/Modal/contents/FormDelete";
 import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import BtnLoading from "../../components/atoms/BtnLoading";
+import CheckBox from "../../components/atoms/CheckBox";
 
 export default function AttendanceCorrection() {
   const { state } = useLocation();
@@ -37,6 +38,8 @@ export default function AttendanceCorrection() {
     clockIn: null,
     clockOut: null,
     desc: "",
+    lateExcused: false,
+    earlyLeaveExcused: false,
   });
   const { user } = useContext(AuthContext);
   const [formKey, setFormKey] = useState(0);
@@ -52,11 +55,17 @@ export default function AttendanceCorrection() {
         clockIn: null,
         clockOut: null,
         desc: "",
+        lateExcused: false,
+        earlyLeaveExcused: false,
       });
       setDateDisplay("");
       setClockInDisplay("");
       setClockOutDisplay("");
       setErrorMsg("");
+      setLockedField({
+        clockIn: false,
+        clockOut: false,
+      });
     }, 300);
     setFormKey((k) => k + 1);
   }, []);
@@ -71,10 +80,17 @@ export default function AttendanceCorrection() {
   const { loading, startLoading, stopLoading } = useDelayedLoading();
   const submitLoader = useDelayedLoading();
   const skeletonLoop = Array.from({ length: 3 });
+  const [importedUntil, setImportedUntil] = useState(null);
+  const attendanceImported = isAttendanceImported(form.corrDate, importedUntil);
 
   useEffect(() => {
     if (!form.corrDate || !user) return;
-    fetchDataByDate();
+    const initial = async () => {
+      const importedUntil = await fetchLastSynced();
+      await fetchDataByDate(importedUntil);
+    };
+
+    initial();
   }, [form.corrDate, user]);
 
   useEffect(() => {
@@ -107,13 +123,20 @@ export default function AttendanceCorrection() {
       toast.error("Please enter Correction Date");
       return;
     }
-    if (!form.clockIn) {
-      toast.error("Please enter Clock-in Time");
-      return;
-    }
-    if (!form.clockOut) {
-      toast.error("Please enter Clock-out Time");
-      return;
+    if (attendanceImported) {
+      if (!form.clockIn) {
+        toast.error("Please enter Clock-in Time");
+        return;
+      }
+      if (!form.clockOut) {
+        toast.error("Please enter Clock-out Time");
+        return;
+      }
+    } else {
+      if (!form.lateExcused && !form.earlyLeaveExcused) {
+        toast.error("Please select at least one excuse type");
+        return;
+      }
     }
     if (!form.desc || form.desc.trim() === "") {
       toast.error("Please enter the description!");
@@ -128,6 +151,8 @@ export default function AttendanceCorrection() {
         clockIn: form.clockIn,
         clockOut: form.clockOut,
         description: form.desc,
+        lateExcused: form.lateExcused,
+        earlyLeaveExcused: form.earlyLeaveExcused,
       });
       resetForm();
       fetchReqHistory();
@@ -139,7 +164,27 @@ export default function AttendanceCorrection() {
     }
   }
 
-  async function fetchDataByDate() {
+  async function fetchLastSynced() {
+    try {
+      const res = await api.get(`/attendanceCorrection/lastSynced/`, {
+        params: {
+          date: formatLocalDate(form.corrDate),
+        },
+      });
+
+      setImportedUntil(res.data);
+
+      return res.data;
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function isAttendanceImported(date, importedUntil) {
+    return new Date(date) <= new Date(importedUntil);
+  }
+
+  async function fetchDataByDate(importedUntil) {
     const date = formatLocalDate(new Date(form.corrDate));
     const res = await api.get(
       `/attendanceLog/log?startDate=${date}&endDate=${date}`,
@@ -157,6 +202,13 @@ export default function AttendanceCorrection() {
       clockIn: !!data?.masuk,
       clockOut: !!data?.pulang,
     });
+
+    if (!attendanceImported) {
+      setLockedField({
+        clockIn: true,
+        clockOut: true,
+      });
+    }
   }
 
   async function fetchReqHistory() {
@@ -199,8 +251,8 @@ export default function AttendanceCorrection() {
       </div>
 
       <div
-        className={`flex flex-col bg-slate-100 mx-4 my-5 px-3 pt-3 pb-2 rounded-xl border  border-slate-400 shadow-sm overflow-auto scrollbar-hidden
-            md:max-w-2xl md:flex-row md:mx-auto md:min-h-[420px]
+        className={`flex flex-col bg-slate-100 mx-4 my-5 px-3 pt-3 pb-2 rounded-xl border  border-slate-400 shadow-sm overflow-auto scrollbar-hidden min-h-[420px]
+            md:max-w-2xl md:flex-row md:mx-auto md:min-h-[420px] 
             lg:mx-4 lg:min-h-[440px] lg:w-fit
             xl:max-w-3xl `}
         key={formKey}
@@ -260,6 +312,26 @@ export default function AttendanceCorrection() {
                   isDisable={lockedField.clockOut}
                 />
               </div>
+            </div>
+            <div
+              className={`flex transition-all duration-300 ${!attendanceImported ? "max-h-5 opacity-100 -translate-y-5" : "max-h-0 opacity-0 -translate-y-8"}`}
+            >
+              <CheckBox
+                id={"izinTelat"}
+                label={"Izin Terlambat"}
+                isTruncate={false}
+                checked={form.lateExcused}
+                onClick={() => setField("lateExcused", !form.lateExcused)}
+              />
+              <CheckBox
+                id={"izinPulcep"}
+                label={"Izin Pulang Cepat"}
+                isTruncate={false}
+                checked={form.earlyLeaveExcused}
+                onClick={() =>
+                  setField("earlyLeaveExcused", !form.earlyLeaveExcused)
+                }
+              />
             </div>
             <div className="flex flex-col items-center">
               {/* <div className="flex flex-col w-full items-center h-fit"> */}
