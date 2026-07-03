@@ -186,6 +186,10 @@ export default function AttendanceCorrection() {
 
   async function fetchDataByDate(importedUntil) {
     const date = formatLocalDate(new Date(form.corrDate));
+    const attendanceImported = isAttendanceImported(
+      form.corrDate,
+      importedUntil,
+    );
     const res = await api.get(
       `/attendanceLog/log?startDate=${date}&endDate=${date}`,
     );
@@ -199,16 +203,9 @@ export default function AttendanceCorrection() {
     setField("clockOut", isoUtcToMySQLLocal(data?.pulang) ?? null);
 
     setLockedField({
-      clockIn: !!data?.masuk,
-      clockOut: !!data?.pulang,
+      clockIn: attendanceImported ? !!data?.masuk : true,
+      clockOut: attendanceImported ? !!data?.pulang : true,
     });
-
-    if (!attendanceImported) {
-      setLockedField({
-        clockIn: true,
-        clockOut: true,
-      });
-    }
   }
 
   async function fetchReqHistory() {
