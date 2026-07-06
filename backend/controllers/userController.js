@@ -57,7 +57,7 @@ export async function loginUser(req, res) {
       { regnum: user.regnum, role: data.role },
       process.env.JWT_REFRESH_SECRET,
       {
-        expiresIn: "7d",
+        expiresIn: "2d",
       },
     );
 

@@ -11,6 +11,7 @@ const api = axios.create({
 // }
 
 let isRefreshing = false;
+let isLoggingOut = false;
 let failedQueue = [];
 
 const processQueue = (error, token = null) => {
@@ -90,9 +91,25 @@ api.interceptors.response.use(
         return api(original);
       } catch (error) {
         processQueue(error, null);
-        localStorage.clear();
-        // window.location.href = "/";
-        return Promise.reject(error);
+
+        if (!isLoggingOut) {
+          isLoggingOut = true;
+          try {
+            await api.post("/users/logout");
+          } catch (error) {
+            console.error(error);
+          } finally {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+
+            delete api.defaults.headers.common.Authorization;
+
+            window.location.replace("/");
+          }
+        }
+
+        return new Promise(() => {});
+        // return Promise.reject(error);
       } finally {
         isRefreshing = false;
       }
@@ -103,13 +120,13 @@ api.interceptors.response.use(
     //   localStorage.removeItem("user");
     //   window.location.href = "/";
     // }
-    if (
-      err.response?.status === 403 &&
-      err.config.url.includes("/users/refresh")
-    ) {
-      localStorage.clear();
-      window.location.href = "/";
-    }
+    // if (
+    //   err.response?.status === 403 &&
+    //   err.config.url.includes("/users/refresh")
+    // ) {
+    //   localStorage.clear();
+    //   window.location.href = "/";
+    // }
 
     return Promise.reject(err);
   },

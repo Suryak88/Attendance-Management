@@ -53,7 +53,7 @@ export function AuthProvider({ children }) {
       setToken(null);
       localStorage.removeItem("user");
       localStorage.removeItem("token");
-      api.defaults.headers.common["Authorization"] = null;
+      delete api.defaults.headers.common.Authorization;
     }
   };
 
