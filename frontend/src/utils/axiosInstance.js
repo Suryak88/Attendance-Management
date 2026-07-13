@@ -38,7 +38,8 @@ api.interceptors.response.use(
   (res) => res,
   async (err) => {
     const original = err.config;
-
+    const isLogin = original.url.includes("/users/login");
+    const isRefresh = original.url.includes("/users/refresh");
     // if (
     //   err.response?.status === 401 &&
     //   !original._retry &&
@@ -66,7 +67,8 @@ api.interceptors.response.use(
     if (
       err.response?.status === 401 &&
       !original._retry &&
-      !original.url.includes("/users/refresh")
+      !isRefresh &&
+      !isLogin
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
