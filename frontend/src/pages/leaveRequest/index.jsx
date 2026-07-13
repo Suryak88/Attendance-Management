@@ -36,8 +36,9 @@ import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import HistoryBar from "../../components/organisms/HistoryBar";
 import BtnLoading from "../../components/atoms/BtnLoading";
 import { extractErrorMessage } from "../../utils/extractErrorBlob";
-import { toDateOnly } from "../../../../backend/utils/date";
-import { ArrowRight, Info } from "lucide-react";
+import { ArrowRight, File, Info, X } from "lucide-react";
+import FloatingUpload from "../../components/atoms/FloatingUpload";
+import { FloatingPortal } from "@floating-ui/react";
 
 export default function LeaveRequest() {
   const { state } = useLocation();
@@ -47,6 +48,7 @@ export default function LeaveRequest() {
     startDate: null,
     endDate: null,
     leaveTypeId: null,
+    medicalCertificate: null,
     desc: "",
   });
   const { user } = useContext(AuthContext);
@@ -88,6 +90,10 @@ export default function LeaveRequest() {
     setRevisedDisplay("");
     setEndLeaveEarlyNotes("");
     setOpenHistory(false);
+    if (previewFiles) {
+      URL.revokeObjectURL(previewFiles);
+    }
+    setPreviewFiles(null);
   });
 
   const handleClear = () => {
@@ -102,7 +108,15 @@ export default function LeaveRequest() {
   };
 
   const modal = useModal(resetModal);
-  const { showSuccess, open, openModal, close, mode, deleteModal } = modal;
+  const {
+    showSuccess,
+    open,
+    openModal,
+    close,
+    mode,
+    deleteModal,
+    openWithMode,
+  } = modal;
 
   const isEndDateInvalid =
     form.startDate && form.endDate && form.endDate < form.startDate;
@@ -118,8 +132,11 @@ export default function LeaveRequest() {
   const quotaLoader = useDelayedLoading();
   const pdfLoader = useDelayedLoading();
   const submitLoader = useDelayedLoading();
-
+  const previewFileLoader = useDelayedLoading();
   const skeletonLoop = Array.from({ length: 3 });
+  const [previewImage, setPreviewImage] = useState(null);
+  const [previewFiles, setPreviewFiles] = useState(null);
+  const [openPreview, setOpenPreview] = useState(false);
 
   useEffect(() => {
     if (!state) return;
@@ -225,20 +242,27 @@ export default function LeaveRequest() {
       toast.error("Please select leave type!");
       return;
     }
+    if (form.leaveTypeId === 1 && !form.medicalCertificate) {
+      toast.error("Please upload medical certificate!");
+      return;
+    }
     if (!form.desc || form.desc.trim() === "") {
       toast.error("Please enter the description!");
       return;
     }
 
+    const formData = new FormData();
+    formData.append("name", user.fullname);
+    formData.append("startDate", formatLocalDate(form.startDate));
+    formData.append("endDate", formatLocalDate(form.endDate));
+    formData.append("leaveType", form.leaveTypeId);
+    formData.append("description", form.desc);
+    if (form.leaveTypeId === 1 && form.medicalCertificate) {
+      formData.append("medicalCertificate", form.medicalCertificate);
+    }
     try {
       submitLoader.startLoading();
-      await api.post("/leaveRequest/", {
-        name: user.username,
-        startDate: formatLocalDate(form.startDate),
-        endDate: formatLocalDate(form.endDate),
-        leaveType: form.leaveTypeId,
-        description: form.desc,
-      });
+      await api.post("/leaveRequest/", formData);
       resetForm();
       fetchLeaveHistory();
       showSuccess();
@@ -398,6 +422,31 @@ export default function LeaveRequest() {
     }
   }
 
+  async function getMedicalCertificate(item) {
+    if (!item?.medical_certificate_name) return;
+
+    try {
+      if (previewFiles) {
+        URL.revokeObjectURL(previewFiles);
+      }
+      previewFileLoader.startLoading();
+
+      const res = await api.get(`leaveRequest/medicalCertif/${item?.id}`, {
+        responseType: "blob",
+      });
+
+      const url = URL.createObjectURL(res.data);
+
+      setPreviewFiles(url);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to fetch medical certificate",
+      );
+    } finally {
+      previewFileLoader.stopLoading();
+    }
+  }
+
   return (
     <>
       <div className="bg-slate-100 flex flex-1 flex-col p-0.5 min-h-0 overflow-auto scrollbar-hidden">
@@ -406,8 +455,8 @@ export default function LeaveRequest() {
         </div>
         <div
           className={`flex flex-col bg-slate-100 mx-4 my-5 px-3 pt-3 pb-2 rounded-xl border  border-slate-400 shadow-sm  
-            md:max-w-2xl md:flex-row md:mx-auto md:min-h-[420px]
-            lg:mx-4 lg:min-h-[440px]
+            md:max-w-2xl md:flex-row md:mx-auto
+            lg:mx-4
             xl:max-w-3xl`}
           key={formKey}
         >
@@ -468,7 +517,7 @@ export default function LeaveRequest() {
                   />
                 </div>
               </div>
-              <div className="flex flex-col items-center mb-3">
+              <div className="flex flex-col items-center mb-2">
                 {/* <div className="flex flex-col w-full items-center"> */}
                 <FloatingSelect
                   id="leaveType"
@@ -481,6 +530,20 @@ export default function LeaveRequest() {
                   fontThickness="font-normal"
                 />
                 {/* </div> */}
+              </div>
+              <div
+                className={`flex flex-col items-center  transition-all duration-300 ${form.leaveTypeId === 1 ? "opacity-100 pointer-events-auto mb-3 -translate-y-1" : "max-h-0 opacity-0 pointer-events-none translate-y-1"}`}
+              >
+                <FloatingUpload
+                  id={"sakitDokumentasi"}
+                  label={"Medical Certificate"}
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  // message={"Upload your medical certified here"}
+                  value={form.medicalCertificate}
+                  onValueChange={(file) => setField("medicalCertificate", file)}
+                  onPreview={setPreviewImage}
+                  openWithMode={openWithMode}
+                />
               </div>
               <div className="flex flex-col items-center">
                 {/* <div className="flex flex-col w-full items-center h-fit"> */}
@@ -531,57 +594,57 @@ export default function LeaveRequest() {
                 <Info className="size-4.5" />
               </span>
             </div>
-            <DayPicker
-              mode="range"
-              selected={range}
-              onSelect={(r) => {
-                if (!r) {
-                  setField("startDate", null);
-                  setField("endDate", null);
-                  setStartDisplay("");
-                  setEndDisplay("");
-                  return;
-                }
+            <div className="h-80">
+              <DayPicker
+                mode="range"
+                selected={range}
+                onSelect={(r) => {
+                  if (!r) {
+                    setField("startDate", null);
+                    setField("endDate", null);
+                    setStartDisplay("");
+                    setEndDisplay("");
+                    return;
+                  }
 
-                setField("startDate", r.from ?? null);
-                setField("endDate", r.to ?? null);
+                  setField("startDate", r.from ?? null);
+                  setField("endDate", r.to ?? null);
 
-                setStartDisplay(r.from ? formatDateFromPicker(r.from) : "");
-                setEndDisplay(r.to ? formatDateFromPicker(r.to) : "");
-              }}
-              month={calendarMonth}
-              onMonthChange={setCalendarMonth}
-              navLayout="around"
-              animate
-              className="p-1 flex grow"
-              style={{
-                "--rdp-accent-color": "#000000",
-                "--rdp-accent-background-color": "#fee2e2",
-                "--rdp-range_start-date-background-color": "#f87171",
-                "--rdp-range_end-date-background-color": "#f87171",
-                "--rdp-range_middle-background-color": "#fee2e2",
-              }}
-              classNames={{
-                day: "m-1 hover:bg-red-400 hover:text-white rounded-full",
-                today: `${getDefaultClassNames} outline outline-red-400 rounded-full`,
-                selected:
-                  "font-normal hover:rounded-none focus:ring-0 outline-none rounded-none",
-              }}
-              modifiers={{
-                sunday: (date) => date.getDay() === 0,
-                holiday: (date) => holidaySet.has(formatLocalDate(date)),
-              }}
-              modifiersClassNames={{
-                sunday: "text-red-600",
-                holiday: "text-red-600",
-              }}
-            />
-            <div className="flex justify-end">
-              <p className="text-xs relative -top-7 lg:-top-9 right-8 ">
-                Total leave days: {totalDays}
-              </p>
+                  setStartDisplay(r.from ? formatDateFromPicker(r.from) : "");
+                  setEndDisplay(r.to ? formatDateFromPicker(r.to) : "");
+                }}
+                month={calendarMonth}
+                onMonthChange={setCalendarMonth}
+                navLayout="around"
+                animate
+                className="p-1 flex grow"
+                style={{
+                  "--rdp-accent-color": "#000000",
+                  "--rdp-accent-background-color": "#fee2e2",
+                  "--rdp-range_start-date-background-color": "#f87171",
+                  "--rdp-range_end-date-background-color": "#f87171",
+                  "--rdp-range_middle-background-color": "#fee2e2",
+                }}
+                classNames={{
+                  day: "m-1 hover:bg-red-400 hover:text-white rounded-full",
+                  today: `${getDefaultClassNames} outline outline-red-400 rounded-full`,
+                  selected:
+                    "font-normal hover:rounded-none focus:ring-0 outline-none rounded-none",
+                }}
+                modifiers={{
+                  sunday: (date) => date.getDay() === 0,
+                  holiday: (date) => holidaySet.has(formatLocalDate(date)),
+                }}
+                modifiersClassNames={{
+                  sunday: "text-red-600",
+                  holiday: "text-red-600",
+                }}
+              />
+            </div>
+            <div className="flex justify-end items-center gap-3 mb-3">
+              <p className="text-xs relative">Total leave days: {totalDays}</p>
               <button
-                className="relative -top-8 lg:-top-10 shadow-sm bg-slate-300 rounded-full w-fit px-3 hover:bg-slate-400 hover:text-white cursor-pointer outline outline-slate-400"
+                className="shadow-sm bg-slate-300 rounded-full w-fit px-3 hover:bg-slate-400 hover:text-white cursor-pointer outline outline-slate-400"
                 onClick={handleClear}
               >
                 Reset
@@ -734,6 +797,7 @@ export default function LeaveRequest() {
                           openModal();
                           setSelectedReq(item);
                           showRevisionHistory(item.id);
+                          getMedicalCertificate(item);
                         }}
                       />
                       {item.fl_approve === 0 && (
@@ -861,6 +925,57 @@ export default function LeaveRequest() {
                   <p>Req. Date</p>
                   <p>{formatDateIndo(selectedReq?.log_date)}</p>
                 </div>
+                {selectedReq?.leave_id === 1 &&
+                  selectedReq?.medical_certificate_name && (
+                    <div className="flex justify-between text-sm">
+                      <p>Medical Certificate</p>
+                      {selectedReq?.medical_certificate_mime?.startsWith(
+                        "image/",
+                      ) ? (
+                        <div
+                          className="flex gap-1 group"
+                          onClick={() => setOpenPreview(true)}
+                          title="Preview File"
+                        >
+                          {previewFileLoader.loading ? (
+                            <BtnLoading />
+                          ) : (
+                            <img
+                              src={previewFiles}
+                              className="h-6 rounded object-cover cursor-zoom-in select-none hover:opacity-80 transition group-hover:opacity-80"
+                            />
+                          )}
+                          <span className="cursor-pointer group-hover:underline shrink-0">
+                            {truncateText(
+                              selectedReq?.medical_certificate_original_name,
+                              20,
+                            )}
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex gap-1 group"
+                          onClick={() => setOpenPreview(true)}
+                          title="Preview File"
+                        >
+                          {previewFileLoader.loading ? (
+                            <BtnLoading />
+                          ) : (
+                            <File
+                              className="size-4.5 hover:opacity-80 group-hover:opacity-80 cursor-pointer"
+                              strokeWidth={"1.5px"}
+                            />
+                          )}
+                          <span className="cursor-pointer group-hover:underline shrink-0">
+                            {truncateText(
+                              selectedReq?.medical_certificate_original_name,
+                              20,
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 <div className="flex w-full justify-between text-sm">
                   <p>Decision Date</p>
                   <p>{formatDateIndo(selectedReq?.approved_log) ?? "-"}</p>
@@ -1052,6 +1167,16 @@ export default function LeaveRequest() {
               )}
             </ModalPanel>
           )}
+
+          {mode === "preview" && (
+            <div className="flex items-center justify-center w-full relative ">
+              <img
+                src={previewImage?.preview}
+                onClick={(e) => e.stopPropagation()}
+                className="max-h-[70vh] max-w-[70vw] rounded-lg shadow-2xl object-contain"
+              />
+            </div>
+          )}
         </Modal>
 
         {popup && (
@@ -1084,6 +1209,34 @@ export default function LeaveRequest() {
             </div>
           </PopUpMenu>
         )}
+
+        <FloatingPortal>
+          <div
+            className={`fixed inset-0 flex items-center justify-center bg-black/50 ignore-popup-close z-999 transition-all duration-300 ease-in-out
+            ${openPreview ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+            onClick={() => setOpenPreview(false)}
+          >
+            {selectedReq?.medical_certificate_mime?.startsWith("image/") ? (
+              previewFileLoader.loading ? (
+                <BtnLoading />
+              ) : (
+                <img
+                  src={previewFiles}
+                  onClick={(e) => e.stopPropagation()}
+                  className="max-h-[75vh] max-w-[75vw] rounded-lg shadow-2xl object-cover"
+                />
+              )
+            ) : previewFileLoader.loading ? (
+              <BtnLoading />
+            ) : (
+              <iframe
+                src={previewFiles}
+                className="w-[80vw] md:w-[60vw] h-[70vh] md:h-[85vh] rounded-lg"
+                title="Medical Certificate Preview"
+              />
+            )}
+          </div>
+        </FloatingPortal>
       </div>
     </>
   );

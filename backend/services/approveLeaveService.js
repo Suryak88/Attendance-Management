@@ -1,5 +1,6 @@
 import { BusinessError } from "../errors/BusinessError.js";
-import { formatDateIndo } from "../utils/date.js";
+import { buildLeaveDates } from "../utils/buildLeaveDates.js";
+import { formatDateIndo, getDatesBetween } from "../utils/date.js";
 import { validateRangeNotClosed } from "../utils/validateNotClosed.js";
 import { authorityChecking } from "./authorityService.js";
 
@@ -15,7 +16,7 @@ export async function approveLeave(conn, leave, loginRegnum) {
     [leave.tgl1, leave.tgl2],
   );
 
-  const leaveDates = workdays.map((w) => new Date(w.work_date));
+  // const leaveDates = workdays.map((w) => new Date(w.work_date));
 
   const [conflicts] = await conn.query(
     `SELECT asattenddate_rev 
@@ -35,7 +36,7 @@ export async function approveLeave(conn, leave, loginRegnum) {
   }
 
   const [[leaveTypeRow]] = await conn.query(
-    `SELECT a.quota_type, a.default_quota, a.nama 
+    `SELECT a.quota_type, a.default_quota, a.nama, a.day_type
 		   FROM m_leave a
 		   LEFT JOIN t_leave b
 		   ON a.id = b.leave_id
@@ -46,6 +47,13 @@ export async function approveLeave(conn, leave, loginRegnum) {
   if (!leaveTypeRow) {
     throw new BusinessError("INVALID_LEAVE_TYPE", "Jenis cuti tidak valid");
   }
+
+  const allLeaveDates = getDatesBetween(leave.tgl1, leave.tgl2);
+  const leaveDates = buildLeaveDates(
+    leaveTypeRow.day_type,
+    workdays,
+    allLeaveDates,
+  );
 
   if (leaveTypeRow.quota_type === "BALANCE") {
     const [quotas] = await conn.query(
@@ -93,6 +101,13 @@ export async function approveLeave(conn, leave, loginRegnum) {
       );
 
       q.quota -= 1;
+    }
+  } else if (leaveTypeRow.quota_type === "EVENT") {
+    if (leaveDates.length > leaveTypeRow.default_quota) {
+      throw new BusinessError(
+        "INSUFFICIENT_EVENT_QUOTA",
+        `Kuota ${leaveTypeRow.nama} hanya ${leaveTypeRow.default_quota} hari`,
+      );
     }
   }
 

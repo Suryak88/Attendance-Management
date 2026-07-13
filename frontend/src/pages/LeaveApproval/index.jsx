@@ -43,10 +43,12 @@ import {
   ArrowRight,
   Info,
   X,
+  File,
 } from "lucide-react";
 import { columns } from "../../data/leaveApprovalTableHead";
 import { truncateText } from "../../utils/truncateText";
 import SidebarButton from "../../components/atoms/SidebarButton";
+import { FloatingPortal } from "@floating-ui/react";
 
 export default function LeaveApproval() {
   const { user, subordinates } = useContext(AuthContext);
@@ -101,6 +103,7 @@ export default function LeaveApproval() {
   const submitLoader = useDelayedLoading();
   const pdfLoader = useDelayedLoading();
   const submitBulkLoader = useDelayedLoading();
+  const previewFileLoader = useDelayedLoading();
   const skeletonLoop = Array.from({ length: 5 });
   const requestIdRef = useRef(0);
   const [cutiDetail, setCutiDetail] = useState([]);
@@ -110,6 +113,8 @@ export default function LeaveApproval() {
   const [rowPopup, setRowPopup] = useState(null);
   const [rowPopupOpen, setRowPopupOpen] = useState(false);
   const [checkedIds, setCheckedIds] = useState([]);
+  const [previewFiles, setPreviewFiles] = useState(null);
+  const [openPreview, setOpenPreview] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -305,6 +310,10 @@ export default function LeaveApproval() {
     setSelectedRequest(null);
     setActionMode(null);
     setRejectNotes("");
+    if (previewFiles) {
+      URL.revokeObjectURL(previewFiles);
+    }
+    setPreviewFiles(null);
   }
 
   function handleClose() {
@@ -510,11 +519,37 @@ export default function LeaveApproval() {
     setCheckedIds((prev) => [...new Set([...prev, ...pendingIds])]);
   }
 
-  function handleClickDetail(item) {
+  async function handleClickDetail(item) {
     fetchLeaveQuota(item.regnum, item.tgl1);
     openModal();
     setSelectedRequest(item);
     setRejectNotes(item.rejection_notes || item.revision_rejection_notes || "");
+    await getMedicalCertificate(item);
+  }
+
+  async function getMedicalCertificate(item) {
+    if (!item?.medical_certificate_name) return;
+
+    try {
+      if (previewFiles) {
+        URL.revokeObjectURL(previewFiles);
+      }
+      previewFileLoader.startLoading();
+
+      const res = await api.get(`leaveRequest/medicalCertif/${item?.id}`, {
+        responseType: "blob",
+      });
+
+      const url = URL.createObjectURL(res.data);
+
+      setPreviewFiles(url);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to fetch medical certificate",
+      );
+    } finally {
+      previewFileLoader.stopLoading();
+    }
   }
 
   return (
@@ -883,6 +918,57 @@ export default function LeaveApproval() {
                         {formatDateIndo(selectedRequest?.log_date)}
                       </p>
                     </div>
+                    {selectedRequest?.leave_id === 1 &&
+                      selectedRequest?.medical_certificate_name && (
+                        <div className="flex justify-between">
+                          <p>Medical Certificate</p>
+                          {selectedRequest?.medical_certificate_mime?.startsWith(
+                            "image/",
+                          ) ? (
+                            <div
+                              className="flex gap-1 group"
+                              onClick={() => setOpenPreview(true)}
+                              title="Preview File"
+                            >
+                              {previewFileLoader.loading ? (
+                                <BtnLoading />
+                              ) : (
+                                <img
+                                  src={previewFiles}
+                                  className="h-6 rounded object-cover cursor-zoom-in select-none hover:opacity-80 transition group-hover:opacity-80"
+                                />
+                              )}
+                              <span className="cursor-pointer group-hover:underline shrink-0">
+                                {truncateText(
+                                  selectedRequest?.medical_certificate_original_name,
+                                  20,
+                                )}
+                              </span>
+                            </div>
+                          ) : (
+                            <div
+                              className="flex gap-1 group"
+                              onClick={() => setOpenPreview(true)}
+                              title="Preview File"
+                            >
+                              {previewFileLoader.loading ? (
+                                <BtnLoading />
+                              ) : (
+                                <File
+                                  className="size-4.5 hover:opacity-80 group-hover:opacity-80 cursor-pointer"
+                                  strokeWidth={"1.5px"}
+                                />
+                              )}
+                              <span className="cursor-pointer group-hover:underline shrink-0">
+                                {truncateText(
+                                  selectedRequest?.medical_certificate_original_name,
+                                  20,
+                                )}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                   </div>
                   {selectedRequest?.new_tgl2 && (
                     <div className="flex flex-col flex-1 w-full mt-2">
@@ -1141,6 +1227,34 @@ export default function LeaveApproval() {
             />
           </PopUpMenu>
         )}
+
+        <FloatingPortal>
+          <div
+            className={`fixed inset-0 flex items-center justify-center bg-black/50 ignore-popup-close z-999 transition-all duration-300 ease-in-out
+                ${openPreview ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+            onClick={() => setOpenPreview(false)}
+          >
+            {selectedRequest?.medical_certificate_mime?.startsWith("image/") ? (
+              previewFileLoader.loading ? (
+                <BtnLoading />
+              ) : (
+                <img
+                  src={previewFiles}
+                  onClick={(e) => e.stopPropagation()}
+                  className="max-h-[75vh] max-w-[75vw] rounded-lg shadow-2xl object-cover"
+                />
+              )
+            ) : previewFileLoader.loading ? (
+              <BtnLoading />
+            ) : (
+              <iframe
+                src={previewFiles}
+                className="w-[80vw] md:w-[60vw] h-[70vh] md:h-[85vh] rounded-lg"
+                title="Medical Certificate Preview"
+              />
+            )}
+          </div>
+        </FloatingPortal>
       </div>
     </>
   );

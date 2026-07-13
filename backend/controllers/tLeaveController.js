@@ -18,6 +18,7 @@ import { getBrowser } from "../services/pdfService.js";
 import { runWithLimit } from "../services/concurrency.js";
 import { authorityChecking } from "../services/authorityService.js";
 import { approveLeave } from "../services/approveLeaveService.js";
+import { buildLeaveDates } from "../utils/buildLeaveDates.js";
 
 export async function showLeaveQuota(req, res) {
   try {
@@ -109,6 +110,15 @@ export async function addLeaveRequest(req, res) {
 
   try {
     const { name, startDate, endDate, leaveType, description } = req.body;
+    const medicalCertificate = req.file;
+    let relativePath = null;
+
+    if (medicalCertificate) {
+      relativePath = path
+        .relative("uploads/medicalCertificate", req.file.path)
+        .replace(/\\/g, "/");
+    }
+
     const regnum = req.user.regnum;
     await conn.beginTransaction();
 
@@ -185,17 +195,26 @@ export async function addLeaveRequest(req, res) {
       [leaveType],
     );
 
+    if (leaveType === 1 && !medicalCertificate) {
+      throw new BusinessError("NO_ATTACHMENT", "File surat sakit tidak ada!");
+    }
+
     if (!leaveTypeRow) {
       throw new BusinessError("INVALID_LEAVE_TYPE", "Jenis cuti tidak valid");
     }
 
-    let leaveDates = [];
+    // let leaveDates = [];
 
-    if (leaveTypeRow.day_type === "WOKRDAY") {
-      leaveDates = workdays.map((w) => new Date(w));
-    } else {
-      leaveDates = allLeaveDates.map((d) => new Date(d));
-    }
+    // if (leaveTypeRow.day_type === "WORKDAY") {
+    //   leaveDates = workdays.map((w) => new Date(w));
+    // } else {
+    //   leaveDates = allLeaveDates.map((d) => new Date(d));
+    // }
+    const leaveDates = buildLeaveDates(
+      leaveTypeRow.day_type,
+      workdays,
+      allLeaveDates,
+    );
 
     if (leaveTypeRow.quota_type === "BALANCE") {
       const [quotas] = await conn.query(
@@ -242,8 +261,21 @@ export async function addLeaveRequest(req, res) {
     }
 
     await conn.query(
-      "INSERT INTO t_leave (regnum, fullname, tgl1, tgl2, leave_id, keterangan, entry_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [regnum, name, startDate, endDate, leaveType, description, regnum],
+      `INSERT INTO t_leave 
+      (regnum, fullname, tgl1, tgl2, leave_id, keterangan, entry_by, medical_certificate_name, medical_certificate_original_name, medical_certificate_mime) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        regnum,
+        name,
+        startDate,
+        endDate,
+        leaveType,
+        description,
+        regnum,
+        relativePath,
+        medicalCertificate?.originalname ?? null,
+        medicalCertificate?.mimetype ?? null,
+      ],
     );
 
     await conn.commit();
@@ -254,6 +286,14 @@ export async function addLeaveRequest(req, res) {
   } catch (error) {
     await conn.rollback();
     console.log(error);
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) {
+          console.error("Failed deleting uploaded file", err);
+        }
+      });
+    }
+
     if (error instanceof BusinessError) {
       return res.status(422).json({
         code: error.code,
@@ -1365,6 +1405,57 @@ export async function bulkLeaveApprove(req, res) {
     res.status(200).json({ message: "Request Approved!" });
   } catch (error) {
     await conn.rollback();
+    console.log(error);
+    res.status(500).json({ message: error.message });
+  } finally {
+    conn.release();
+  }
+}
+
+export async function getMedicalCertificate(req, res) {
+  const conn = await dbAbsensi.getConnection();
+  try {
+    const loginRegnum = req.user.regnum;
+    const { id } = req.params;
+
+    const [[leave]] = await conn.query(
+      `
+      SELECT a.regnum, a.medical_certificate_name, b.approver
+      FROM t_leave a 
+      LEFT JOIN reg_person b 
+        ON a.regnum = b.regnum
+      WHERE a.id = ? AND fl_hapus = 0`,
+      [id],
+    );
+
+    if (!leave) {
+      throw new BusinessError("LEAVE_NOT_FOUND", "Request tidak ditemukan");
+    }
+
+    if (leave.regnum !== loginRegnum) {
+      await authorityChecking(conn, leave.regnum, loginRegnum);
+    }
+
+    if (!leave.medical_certificate_name) {
+      throw new BusinessError(
+        "ATTACHMENT_NOT_FOUND",
+        "Lampiran tidak ditemukan",
+      );
+    }
+
+    const filePath = path.join(
+      process.cwd(),
+      "uploads",
+      "medicalCertificate",
+      leave.medical_certificate_name,
+    );
+
+    if (!fs.existsSync(filePath)) {
+      throw new BusinessError("FILE_NOT_FOUND", "File tidak ditemukan");
+    }
+
+    return res.sendFile(filePath);
+  } catch (error) {
     console.log(error);
     res.status(500).json({ message: error.message });
   } finally {
