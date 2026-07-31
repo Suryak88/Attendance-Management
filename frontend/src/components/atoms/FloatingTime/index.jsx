@@ -286,7 +286,7 @@ export default function FloatingTime({
     <div
       ref={refs.setReference}
       {...getReferenceProps()}
-      className="relative mb-2 lg:mb-3 w-full transition bg-slate-100"
+      className="relative w-full transition bg-slate-100"
     >
       <input
         type="text"

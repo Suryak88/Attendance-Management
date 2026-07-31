@@ -12,6 +12,7 @@ export default function FloatingInput({
   inputFontSize = "text-base py-2",
   labelFontSize = "text-sm",
   isExternalError = false,
+  isDisabled = false,
 }) {
   // const [value, setValue] = useState("");
   const [touched, setTouched] = useState(false);
@@ -31,19 +32,20 @@ export default function FloatingInput({
         onChange={(e) => onValueChange(e.target.value)}
         onBlur={() => setTouched(true)}
         autoComplete={autoComplete}
-        className={`peer w-full mx-auto ${inputFontSize} font-semibold ${border} mt-2 rounded-lg bg-transparent py-2 px-2 text-gray-900 placeholder-transparent focus:outline-none  ${
+        className={`peer w-full mx-auto ${inputFontSize} font-semibold ${border} mt-2 rounded-lg bg-transparent py-2 px-2 text-gray-900 disabled:text-slate-400 placeholder-transparent focus:outline-none  ${
           isError
             ? "border-red-500 focus:border-red-500"
-            : "border-gray-800 focus:border-blue-600"
+            : "border-gray-800 focus:border-blue-600 disabled:border-slate-400"
         }`}
         required
+        disabled={isDisabled}
       />
       <label
         htmlFor={id}
         className={`absolute left-3 bg-slate-100 px-1 text-md transition-all duration-200 first-letter:uppercase select-none
         ${
           value
-            ? `top-2 -translate-y-1/2 ${labelFontSize} ${fontThickness} ${isError ? "text-red-500" : "peer-focus:text-blue-600 text-gray-800"}`
+            ? `top-2 -translate-y-1/2 ${labelFontSize} ${fontThickness} ${isError ? "text-red-500" : `peer-focus:text-blue-600  ${isDisabled ? "text-slate-400" : "text-gray-800"}`}`
             : `top-7.5 lg:top-7 -translate-y-1/2 text-gray-400 ${fontThickness} text-base peer-focus:top-2 peer-focus:-translate-y-1/2 ${
                 isError ? "peer-focus:text-red-500" : "peer-focus:text-blue-600"
               }  peer-focus:${labelFontSize}`

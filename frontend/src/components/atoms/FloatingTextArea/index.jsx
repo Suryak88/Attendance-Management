@@ -10,6 +10,7 @@ export default function FloatingTextArea({
   labelFontThickness = "font-semibold",
   inputFontThickness = "font-semibold",
   isDisable,
+  inputRef,
 }) {
   const [touched, setTouched] = useState(false);
 
@@ -32,6 +33,7 @@ export default function FloatingTextArea({
         }`}
         required
         autoComplete="off"
+        ref={inputRef}
       />
       <label
         htmlFor={id}
