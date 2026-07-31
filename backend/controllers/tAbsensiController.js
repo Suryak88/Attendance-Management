@@ -11,6 +11,7 @@ import { getBrowser } from "../services/pdfService.js";
 import { runWithLimit } from "../services/concurrency.js";
 import { authorityChecking } from "../services/authorityService.js";
 import { buildLatePenalty } from "../utils/buildLatePenalty.js";
+import { buildPenaltyHtml } from "../utils/buildPenaltyHtml.js";
 
 export async function getLog(req, res) {
   const loginRegnum = req.user.regnum;
@@ -199,7 +200,7 @@ export async function generateReportPDF(req, res) {
     const endDate = new Date(year, month, 0);
 
     const reports = [];
-    const template = loadTemplate();
+    const template = loadTemplate("attendance-report.html");
 
     for (const reg of employees) {
       const [[valid]] = await conn.query(
@@ -290,12 +291,8 @@ export async function generateReportPDF(req, res) {
   }
 }
 
-function loadTemplate() {
-  const filePath = path.join(
-    process.cwd(),
-    "templates",
-    "attendance-report.html",
-  );
+function loadTemplate(templateName) {
+  const filePath = path.join(process.cwd(), "templates", templateName);
   return fs.readFileSync(filePath, "utf-8");
 }
 
@@ -769,6 +766,82 @@ export async function showLatePenalty(req, res) {
     const result = buildLatePenalty(logs, rules);
 
     res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  } finally {
+    conn.release();
+  }
+}
+
+export async function generatePenaltyPDF(req, res) {
+  const conn = await dbAbsensi.getConnection();
+
+  try {
+    const loginRegnum = req.user.regnum;
+    const { employees, startDate, endDate } = req.body;
+
+    const reports = [];
+    const template = loadTemplate("attendance-penalty.html");
+
+    for (const reg of employees) {
+      const [[valid]] = await conn.query(
+        `SELECT 1 FROM reg_person
+        WHERE regnum = ? AND (approver = ? OR regnum = ?)`,
+        [reg, loginRegnum, loginRegnum],
+      );
+
+      if (!valid) continue;
+
+      const [[logs]] = await conn.query("CALL khabsensi_user(?, ?, ?, ?, ?)", [
+        loginRegnum,
+        reg,
+        startDate,
+        endDate,
+        0,
+      ]);
+
+      const [rules] = await conn.query("SELECT * FROM m_attendance_penalty");
+
+      const penalty = buildLatePenalty(logs, rules);
+
+      reports.push(...penalty.summary);
+    }
+
+    const html = buildPenaltyHtml(template, reports, startDate, endDate);
+
+    const result = await runWithLimit(async () => {
+      const browser = await getBrowser();
+      const page = await browser.newPage();
+
+      try {
+        await page.setContent(html, {
+          waitUntil: "networkidle0",
+          timeout: 30000,
+        });
+
+        const pdf = await page.pdf({
+          format: "A4",
+          printBackground: true,
+          margin: {
+            top: "20px",
+            bottom: "20px",
+            left: "20px",
+            right: "20px",
+          },
+        });
+
+        return pdf;
+      } finally {
+        await page.close();
+      }
+    });
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename=Penalty ${startDate}-${endDate}.pdf`,
+    });
+
+    res.send(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
   } finally {

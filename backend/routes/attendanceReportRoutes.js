@@ -7,6 +7,7 @@ import {
   submitSolveConflict,
   fetchCloseAttendanceStatus,
   showLatePenalty,
+  generatePenaltyPDF,
 } from "../controllers/tAbsensiController.js";
 import { submitCloseAttendance } from "../controllers/tAttendanceCloseController.js";
 
@@ -19,5 +20,6 @@ router.post("/generate-pdf/", authMiddleware, generateReportPDF);
 router.post("/solveConflict/", authMiddleware, submitSolveConflict);
 router.post("/closeStatus/", authMiddleware, fetchCloseAttendanceStatus);
 router.get("/attendancePenalty/", authMiddleware, showLatePenalty);
+router.post("/generate-penalty-PDF/", authMiddleware, generatePenaltyPDF);
 
 export default router;

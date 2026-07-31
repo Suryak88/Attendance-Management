@@ -62,6 +62,8 @@ export function buildLatePenalty(logs, rules) {
       violation: violations.join(", "),
       penalty,
       late_minutes: log.telat,
+      clockIn: log.masuk,
+      clockOut: log.pulang,
     });
   }
 

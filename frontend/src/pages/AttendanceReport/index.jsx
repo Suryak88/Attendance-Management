@@ -48,6 +48,7 @@ import FloatingDate from "../../components/atoms/FloatingDate";
 import FloatingSelect from "../../components/atoms/FloatingSelect";
 import { quickLatePenaltyFilter } from "../../data/quickLatePenalty";
 import { getLastWeekRange } from "../../utils/getLastWeekRange";
+import CheckBox from "../../components/atoms/CheckBox";
 
 export default function AttendanceReport() {
   const { user, subordinates } = useContext(AuthContext);
@@ -70,6 +71,9 @@ export default function AttendanceReport() {
   const [reportMonth, setReportMonth] = useState(prevMonth);
   const [closeStatusMonth, setCloseStatusMonth] = useState(prevMonth);
   const [selectedEmployee, setSelectedEmployee] = useState(new Set());
+  const [checkedPenaltyEmployee, setCheckedPenaltyEmployee] = useState(
+    new Set(),
+  );
   const [filterPopup, setFilterPopup] = useState(null);
   const [filterPopupOpen, setFilterPopupOpen] = useState(false);
   const subordinate = useMemo(() => {
@@ -122,6 +126,7 @@ export default function AttendanceReport() {
   const submitSolveLoader = useDelayedLoading();
   const submitCloseLoader = useDelayedLoading();
   const penaltyLoader = useDelayedLoading();
+  const penaltyPdfLoader = useDelayedLoading();
   const skeletonRows = Array.from({ length: 5 });
   const skeletonModal = Array.from({ length: 3 });
   const requestIdRef = useRef(0);
@@ -447,6 +452,20 @@ export default function AttendanceReport() {
     });
   }
 
+  function toggleCheckPenaltyEmployee(regnum) {
+    setCheckedPenaltyEmployee((prev) => {
+      const newSet = new Set(prev);
+
+      if (newSet.has(regnum)) {
+        newSet.delete(regnum);
+      } else {
+        newSet.add(regnum);
+      }
+
+      return newSet;
+    });
+  }
+
   function handleClickQuickFilter(data) {
     if (activeQuickSelectEmployee === data.id) {
       setActiveQuickSelectEmployee(null);
@@ -698,6 +717,50 @@ export default function AttendanceReport() {
       .finally(() => {
         if (penalty === penaltyRef.current) penaltyLoader.stopLoading();
       });
+  }
+
+  async function generatePenaltyPDF() {
+    if ([...checkedPenaltyEmployee].length === 0) {
+      toast.error("Silahkan pilih karyawan terlebih dahulu");
+      return;
+    }
+    const fileName = `Penalty ${form.startDate.toLocaleString("id-ID", { day: "2-digit" })}-${form.endDate.toLocaleString(
+      "id-ID",
+      {
+        day: "2-digit",
+        month: "numeric",
+        year: "numeric",
+      },
+    )}.pdf`;
+
+    try {
+      penaltyPdfLoader.startLoading();
+      const res = await api.post(
+        "/attendanceReport/generate-penalty-PDF",
+        {
+          employees: [...checkedPenaltyEmployee],
+          startDate: formatLocalDate(form.startDate),
+          endDate: formatLocalDate(form.endDate),
+        },
+        {
+          responseType: "blob",
+        },
+      );
+
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${fileName}`);
+
+      document.body.appendChild(link);
+      link.click();
+    } catch (error) {
+      const msg = await extractErrorMessage(error);
+      toast.error(msg);
+    } finally {
+      penaltyPdfLoader.stopLoading();
+    }
   }
 
   function toggleExpand(regnum) {
@@ -1330,22 +1393,18 @@ export default function AttendanceReport() {
                         <div key={r.employee.regnum}>
                           <label className="flex items-center justify-between p-1 rounded-lg hover:bg-slate-100 cursor-pointer gap-2">
                             <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
+                              <CheckBox
+                                truncateSize={20}
+                                truncateDot={false}
                                 checked={selectedEmployee.has(
                                   r.employee.regnum,
                                 )}
-                                onChange={() =>
-                                  toggleEmployee(r.employee.regnum)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleEmployee(r.employee.regnum);
+                                }}
+                                label={r.employee.namalengkap}
                               />
-                              <span>
-                                {truncateText(
-                                  r.employee.namalengkap,
-                                  20,
-                                  false,
-                                )}
-                              </span>
                             </div>
 
                             <div className="flex gap-1 lg:gap-1.5 justify-end flex-wrap">
@@ -1677,15 +1736,49 @@ export default function AttendanceReport() {
                   btnWidth="w-28 px-1!"
                   textSize="text-sm shadow-none!"
                   handleClick={fetchAttendancePenalty}
-                  btndisable={penaltyLoader.loading}
+                  btndisable={penaltyLoader.loading || penaltyPdfLoader.loading}
                 />
               </div>
               <hr className="text-slate-400 shadow-sm my-2" />
               <div>
                 <div className="flex text-sm font-medium justify-between">
-                  <TableChild flexSize="flex-[0.25]" />
+                  {latePenalty?.summary.length > 1 && (
+                    <div className="flex items-center">
+                      <CheckBox
+                        checked={
+                          checkedPenaltyEmployee?.size ===
+                            latePenalty?.summary.length &&
+                          checkedPenaltyEmployee?.size !== 0
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const all = new Set();
+
+                          setCheckedPenaltyEmployee((prev) => {
+                            if (prev.size === latePenalty.summary.length) {
+                              return new Set();
+                            }
+
+                            return new Set(
+                              latePenalty.summary.map((r) => r.regnum),
+                            );
+                          });
+
+                          if (
+                            checkedPenaltyEmployee?.size !==
+                            latePenalty?.summary.length
+                          ) {
+                            latePenalty?.summary?.map((r) => all.add(r.regnum));
+                          }
+
+                          setCheckedPenaltyEmployee(all);
+                        }}
+                      />
+                    </div>
+                  )}
                   <TableChild flexSize="flex-[2.75]">Nama</TableChild>
                   <TableChild>Denda</TableChild>
+                  <TableChild flexSize="flex-[0.25]" />
                 </div>
                 {latePenalty?.summary.length === 0 &&
                   !penaltyLoader.loading && (
@@ -1700,25 +1793,41 @@ export default function AttendanceReport() {
                 ) : (
                   latePenalty?.summary?.map((penalty) => (
                     <div key={penalty?.regnum}>
-                      <button
-                        className="flex w-full py-0.5 text-sm justify-between cursor-pointer hover:bg-slate-200 rounded-lg focus:outline-none focus:bg-slate-200"
+                      <div
+                        className={`flex w-full py-0.5 text-sm justify-between cursor-pointer  rounded-lg hover:bg-slate-200`}
                         onClick={() => toggleExpand(penalty.regnum)}
                       >
-                        <span
-                          className={`flex flex-[0.25] justify-center items-center cursor-pointer origin-center transition-all duration-500 ${expandedRows.has(penalty.regnum) ? "rotate-180" : ""}`}
-                        >
-                          <ChevronDown className="size-4" />
-                        </span>
+                        {subordinates.length > 1 && (
+                          <div
+                            className="flex items-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <CheckBox
+                              checked={checkedPenaltyEmployee.has(
+                                penalty.regnum,
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleCheckPenaltyEmployee(penalty.regnum);
+                              }}
+                            />
+                          </div>
+                        )}
                         <TableChild flexSize="flex-[2.75]">
                           {penalty?.fullname}
                         </TableChild>
                         <TableChild>
                           {penalty?.total_penalty.toLocaleString("id-ID")}
                         </TableChild>
-                      </button>
+                        <span
+                          className={`flex flex-[0.25] justify-center items-center cursor-pointer origin-center transition-all duration-500 ${expandedRows.has(penalty.regnum) ? "rotate-180" : ""}`}
+                        >
+                          <ChevronDown className="size-4" />
+                        </span>
+                      </div>
                       {penalty.details.map((detail) => (
                         <div
-                          className={`flex text-slate-500 transition-all duration-500 ease-in-out ${expandedRows.has(penalty.regnum) ? "opacity-100 translate-y-0 max-h-60 pointer-events-auto" : "opacity-0 -translate-y-6 max-h-0 pointer-events-none"}`}
+                          className={`flex text-slate-500 transition-all duration-500 ease-in-out ${expandedRows.has(penalty.regnum) ? "opacity-100 translate-y-0 max-h-60 pointer-events-auto" : "opacity-0 -translate-y-1 max-h-0 pointer-events-none"}`}
                           key={`${detail.date}-${detail.penalty}`}
                         >
                           {/* <TableChild flexSize="flex-[0.25]" /> */}
@@ -1728,12 +1837,41 @@ export default function AttendanceReport() {
                           <TableChild>
                             {detail.penalty.toLocaleString("id-ID")}
                           </TableChild>
+                          <TableChild flexSize="flex-[0.2]" />
                         </div>
                       ))}
                     </div>
                   ))
                 )}
               </div>
+              {subordinates.length > 1 && (
+                <div className="flex w-full justify-around mt-10 mb-3">
+                  <Button
+                    btnLabel={"Clear Check"}
+                    btnColor="outline-1 outline-slate-300 hover:outline-slate-500 hover:text-black/60!"
+                    btnWidth="w-35 px-1!"
+                    textSize="text-sm shadow-none! font-normal!"
+                    handleClick={() => setCheckedPenaltyEmployee(new Set())}
+                    btnTitle="Uncheck all"
+                    btndisable={penaltyPdfLoader.loading}
+                  />
+                  <Button
+                    btnLabel={
+                      penaltyPdfLoader.loading ? (
+                        <BtnLoading label={"Downloading PDF"} />
+                      ) : (
+                        <div>Download PDF</div>
+                      )
+                    }
+                    btnColor="outline-1 outline-slate-300 hover:outline-slate-500 hover:text-black/60!"
+                    btnWidth="w-39 px-1!"
+                    textSize="text-sm shadow-sm!"
+                    handleClick={generatePenaltyPDF}
+                    btnTitle="Download as PDF"
+                    btndisable={penaltyPdfLoader.loading}
+                  />
+                </div>
+              )}
             </div>
           </ModalPanel>
         )}
