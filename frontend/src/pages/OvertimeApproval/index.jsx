@@ -390,7 +390,11 @@ export default function OvertimeApproval() {
                       </div>
                     </TableChild>
                     <TableChild>{formatDateIndo(item?.tgl)}</TableChild>
-                    <TableChild>{Number(item?.real_hours)} jam</TableChild>
+                    <TableChild>
+                      {item?.real_hours
+                        ? `${Number(item?.real_hours)} jam`
+                        : "-"}
+                    </TableChild>
                     <TableChild flexSize="flex-[0.2]">
                       <div
                         className={`ignore-popup-close flex items-center rounded-full hover:bg-red-300 cursor-pointer leading-none p-1 xl:p-1 transition-all duration-200 select-none ${
@@ -567,7 +571,9 @@ export default function OvertimeApproval() {
                       <div className="flex flex-1 flex-col text-center">
                         <p className="text-sm text-slate-500">Real Duration</p>
                         <p className="text-base lg:text-lg">
-                          {Number(selectedRequest?.real_hours)} jam
+                          {selectedRequest?.real_hours
+                            ? `${Number(selectedRequest?.real_hours)} jam`
+                            : "-"}
                         </p>
                       </div>
                       <div className="flex flex-1 flex-col text-center">
@@ -583,32 +589,51 @@ export default function OvertimeApproval() {
                     <div className="flex flex-1 justify-between text-center font-medium">
                       <p className="text-base">Overtime Duration</p>
                       <p className="text-base lg:text-lg">
-                        {Number(selectedRequest?.overtime_hours)} jam
+                        {selectedRequest?.overtime_hours
+                          ? `${Number(selectedRequest?.overtime_hours)} jam`
+                          : "-"}
                       </p>
                     </div>
 
-                    <div className="flex flex-1 flex-col mt-2">
-                      <div className="flex justify-between">
-                        <p>Clock-in</p>
-                        <p>{formatMySQLTime(selectedRequest?.masuk)}</p>
-                      </div>
-                      <div className="flex justify-between">
-                        <p>Clock-out</p>
-                        <p>{formatMySQLTime(selectedRequest?.pulang)}</p>
-                      </div>
-                      <div className="flex justify-between">
-                        <p>Clock-out rounded</p>
-                        <p>
-                          {formatMySQLTime(selectedRequest?.pulang_rounded)}
-                        </p>
-                      </div>
-                      {selectedRequest?.telat > 0 && (
+                    {selectedRequest?.overtime_hours ? (
+                      <div className="flex flex-1 flex-col mt-2">
                         <div className="flex justify-between">
-                          <p>Late</p>
-                          <p>{minuteConvert(selectedRequest?.telat)}</p>
+                          <p>Clock-in</p>
+                          <p>{formatMySQLTime(selectedRequest?.masuk)}</p>
                         </div>
-                      )}
-                    </div>
+                        <div className="flex justify-between">
+                          <p>Clock-out</p>
+                          <p>{formatMySQLTime(selectedRequest?.pulang)}</p>
+                        </div>
+                        <div className="flex justify-between">
+                          <p>Clock-out rounded</p>
+                          <p>
+                            {formatMySQLTime(selectedRequest?.pulang_rounded)}
+                          </p>
+                        </div>
+                        {selectedRequest?.telat > 0 && (
+                          <div className="flex justify-between">
+                            <p>Late</p>
+                            <p>{minuteConvert(selectedRequest?.telat)}</p>
+                          </div>
+                        )}
+                        <div className="flex justify-between gap-10">
+                          <p>Desc</p>
+                          <p className="text-right">
+                            {selectedRequest?.keterangan}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-1 flex-col mt-2">
+                        <div className="flex justify-between gap-10">
+                          <p>Desc</p>
+                          <p className="text-right">
+                            {selectedRequest?.keterangan}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <ActionFormSection

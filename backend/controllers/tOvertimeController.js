@@ -1,6 +1,6 @@
 import dbAbsensi from "../config/dbAbsensi.js";
 import { BusinessError } from "../errors/BusinessError.js";
-import { formatMySQLTime } from "../utils/date.js";
+import { formatDateIndo, formatMySQLTime } from "../utils/date.js";
 import {
   calculateOvertimeHours,
   calculateRealHours,
@@ -16,70 +16,52 @@ export async function addOvertime(req, res) {
 
   try {
     const regnum = req.user.regnum;
-    const { name, date, description } = req.body;
+    const { date, description } = req.body;
 
     await conn.beginTransaction();
 
-    const [[workday]] = await conn.query(
-      `SELECT is_workday
-        FROM m_work_calendar
-        WHERE work_date = ?`,
-      [date],
+    await validateRangeNotClosed(conn, regnum, date, date);
+
+    const [[employee]] = await conn.query(
+      `SELECT namalengkap FROM reg_person 
+      WHERE regnum = ?`,
+      [regnum],
     );
 
-    if (workday === 0) {
-      throw new BusinessError("HOLIDAY_DATE", "Tanggal merupakan hari libur");
-    }
-
-    const [[overlap]] = await conn.query(
-      `SELECT COUNT(*) AS total
+    const [[request]] = await conn.query(
+      `SELECT *
         FROM t_overtime
         WHERE regnum = ?
             AND fl_hapus = 0
-            AND fl_approve IN (0,1) 
-            AND tgl = ?`,
+            AND fl_approve IN (0,1)
+            AND tgl = ?
+        FOR UPDATE`,
       [regnum, date],
     );
 
-    if (overlap.total > 0) {
-      throw new BusinessError(
-        "DUPLICATE_REQUEST",
-        `Sudah terdapat request koreksi untuk tanggal ${date}`,
+    if (request) {
+      if (
+        request.overtime_hours &&
+        (!request.keterangan || request.keterangan.trim() === "")
+      ) {
+        await conn.query(
+          `UPDATE t_overtime SET keterangan = ?
+            WHERE id = ?`,
+          [description, request.id],
+        );
+      } else {
+        throw new BusinessError(
+          "DUPLICATE_REQUEST",
+          `Sudah terdapat request lembur untuk tanggal ${formatDateIndo(date)}`,
+        );
+      }
+    } else {
+      await conn.query(
+        `INSERT INTO t_overtime (regnum, fullname, tgl, keterangan, entry_by)
+          VALUES (?, ?, ?, ?, ?)`,
+        [regnum, employee.namalengkap, date, description, regnum],
       );
     }
-
-    const [clockOut] = await conn.query(
-      `SELECT MAX(CASE WHEN checkcode_rev = 1 THEN checkdatetime_rev END) AS pulang
-            FROM t_absensi 
-            WHERE regnum = ? AND asattenddate_rev = ?`,
-      [regnum, date],
-    );
-
-    if (clockOut.length === 0) {
-      throw new BusinessError("NO_CLOCKOUT", "Tidak ada data jam pulang");
-    }
-
-    console.log(formatMySQLTime(clockOut[0].pulang));
-
-    if (formatMySQLTime(clockOut[0].pulang) < "19:00:00") {
-      throw new BusinessError(
-        "NO_OVERTIME",
-        "Jam pulang tidak memenuhi standar jam lembur",
-      );
-    }
-
-    const roundedHours = roundOvertimeHours(clockOut[0].pulang);
-    const realHours = calculateRealHours(roundedHours);
-    const overtimeHours = calculateOvertimeHours(realHours);
-
-    console.log(`roundedHours: ${roundedHours}`);
-    console.log(`realHours: ${realHours}`);
-    console.log(`overtimeHours: ${overtimeHours}`);
-
-    // await conn.query(
-    //   `INSERT INTO t_overtime (regnum, fullname, tgl, pulang, pulang_rounded, real_hours, overtime_hours, keterangan, entry_by)`,
-    //   [regnum],
-    // );
 
     await conn.commit();
 
@@ -129,6 +111,8 @@ export async function showOvertimeRequest(req, res) {
       LEFT JOIN m_shift s ON wc.shift_id = s.id 
       WHERE b.approver = ? 
       AND a.tgl BETWEEN ? AND ?
+      AND a.keterangan IS NOT NULL     
+      AND TRIM(a.keterangan) <> ''
       AND a.fl_approve <> 3`;
 
     const params = [regnum, startDate, endDate];
@@ -212,6 +196,8 @@ export async function approveOvertimeReq(req, res) {
       [regnum, id],
     );
 
+    await conn.query("CALL khApply_Overtime()");
+
     await conn.commit();
     res.status(200).json({ message: "Request approved!" });
   } catch (error) {
@@ -225,7 +211,7 @@ export async function approveOvertimeReq(req, res) {
 
 export async function showOvertime(req, res) {
   try {
-    const { startDate, endDate, limit } = req.query;
+    const { startDate, endDate, limit, date } = req.query;
     const regnum = req.user.regnum;
 
     let query = `
@@ -237,11 +223,19 @@ export async function showOvertime(req, res) {
     	      TIMESTAMP(a.tgl, s.jam_masuk),
     	      a.masuk
     	    )
-    	  ) AS telat 
+    	  ) AS telat,
+    CASE
+    WHEN overtime_hours IS NULL THEN 'WAITING_DETECTION'
+    WHEN keterangan IS NULL OR TRIM(keterangan) = '' THEN 'NEED_DESCRIPTION'
+    WHEN fl_approve = 0 THEN 'WAITING_APPROVAL'
+    WHEN fl_approve = 1 AND applied_at IS NOT NULL THEN 'APPLIED'
+    WHEN fl_approve = 2 THEN 'REJECTED'
+    END AS overtime_status 
     FROM t_overtime a
     LEFT JOIN m_work_calendar wc ON a.tgl = wc.work_date
     LEFT JOIN m_shift s ON wc.shift_id = s.id 
     WHERE regnum = ?
+    AND a.fl_hapus = 0
     `;
 
     const params = [regnum];
@@ -249,6 +243,11 @@ export async function showOvertime(req, res) {
     if (startDate && endDate) {
       query += ` AND tgl BETWEEN ? AND ?`;
       params.push(startDate, endDate);
+    }
+
+    if (date) {
+      query += ` AND a.tgl = ?`;
+      params.push(date);
     }
 
     query += " ORDER BY tgl DESC";
@@ -260,7 +259,36 @@ export async function showOvertime(req, res) {
 
     const [overtime] = await dbAbsensi.query(query, params);
 
-    res.json(overtime);
+    const data = overtime.map((o) => {
+      let overtime_status_formatted;
+      switch (o.overtime_status) {
+        case "WAITING_DETECTION":
+          overtime_status_formatted = "Waiting Overtime Detection";
+          break;
+        case "NEED_DESCRIPTION":
+          overtime_status_formatted = "Need Description";
+          break;
+        case "WAITING_APPROVAL":
+          overtime_status_formatted = "Waiting for Approval";
+          break;
+        case "APPLIED":
+          overtime_status_formatted = "Applied";
+          break;
+        case "REJECTED":
+          overtime_status_formatted = "Rejected";
+          break;
+        default:
+          overtime_status_formatted = "-";
+          break;
+      }
+
+      return {
+        ...o,
+        overtime_status_formatted,
+      };
+    });
+
+    res.json(data);
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: error.message });
@@ -334,6 +362,8 @@ export async function bulkApproveOvertime(req, res) {
       WHERE id IN (?)`,
       [regnum, ids],
     );
+
+    await conn.query("CALL khApply_Overtime()");
 
     await conn.commit();
     res.status(200).json({ message: "Request Approved!" });

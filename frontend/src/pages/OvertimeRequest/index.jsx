@@ -1,83 +1,112 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import Button from "../../components/atoms/Button";
+import { AuthContext } from "../../context/AuthContext";
 import FloatingDate from "../../components/atoms/FloatingDate";
-import { toast } from "sonner";
+import FloatingTextArea from "../../components/atoms/FloatingTextArea";
+import Button from "../../components/atoms/Button";
+import { useDelayedLoading } from "../../hooks/useDelayedLoading";
+import BtnLoading from "../../components/atoms/BtnLoading";
 import {
+  formatDateFromPicker,
   formatDateIndo,
   formatLocalDate,
   formatMySQLTime,
   minuteConvert,
 } from "../../utils/Date";
+import { useModal } from "../../hooks/useModal";
+import Modal from "../../components/organisms/Modal";
+import ModalPanel from "../../components/organisms/Modal/modalPanel";
+import FormSuccess from "../../components/organisms/Modal/contents/FormSuccess";
+import { toast } from "sonner";
 import api from "../../utils/axiosInstance";
-import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import HistoryBar from "../../components/organisms/HistoryBar";
 import { approvalStatusConfig } from "../../utils/statusColor";
-import { AuthContext } from "../../context/AuthContext";
+import { setDate } from "date-fns";
+import FloatingTime from "../../components/atoms/FloatingTime";
+import FloatingInput from "../../components/atoms/FloatingInput";
+import { useLocation } from "react-router-dom";
 
 export default function OvertimeRequest() {
   const { user } = useContext(AuthContext);
-  const [date, setDate] = useState("");
-  const [displayDate, setDisplayDate] = useState("");
-  const [detail, setDetail] = useState([]);
-  const [ovtHistory, setOvtHistory] = useState([]);
+  const [dateDisplay, setDateDisplay] = useState("");
+  const [formKey, setFormKey] = useState(0);
+  const [form, setForm] = useState({
+    overtimeDate: null,
+    desc: "",
+    clockIn: null,
+    clockOut: null,
+    duration: null,
+  });
   const skeletonRows = Array.from({ length: 3 });
-  const cekLoader = useDelayedLoading();
+  const submitLoader = useDelayedLoading();
   const historyLoader = useDelayedLoading();
-  const requestIdRef = useRef(0);
+  const { open, mode, close, showSuccess } = useModal(resetForm);
+  const [ovtHistory, setOvtHistory] = useState([]);
+  const descriptionRef = useRef(null);
+  const { state } = useLocation();
 
   useEffect(() => {
     if (!user) return;
-    fetchOvtHistory();
+    fetchReqHistory();
   }, [user]);
 
-  async function handleCheck(e) {
+  useEffect(() => {
+    if (!form.overtimeDate || !user) return;
+    fetchOvertimebyDate();
+  }, [form.overtimeDate, user]);
+
+  useEffect(() => {
+    if (!state) return;
+    const date = new Date(state.date);
+    setField("overtimeDate", date);
+    setDateDisplay(formatDateFromPicker(date));
+  }, [state]);
+
+  function setField(field, value) {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
+
+  function resetForm() {
+    setTimeout(() => {
+      setForm({
+        overtimeDate: null,
+        desc: "",
+      });
+      setDateDisplay("");
+    }, 300);
+    setFormKey((k) => k + 1);
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!date) {
-      toast.error("Please select a date");
+    if (!form.overtimeDate) {
+      toast.error("Please enter Overtime Date");
+      return;
+    }
+    if (!form.desc || form.desc.trim() === "") {
+      toast.error("Please enter the description!");
       return;
     }
 
-    const requestId = ++requestIdRef.current;
-    cekLoader.startLoading();
-
-    await api
-      .get("/overtime/check/", {
-        params: {
-          date: formatLocalDate(date),
-        },
-      })
-      .then((res) => {
-        if (requestId !== requestIdRef.current) return;
-
-        const formatted = formatting(res.data);
-        setDetail(formatted);
-      })
-      .catch((error) => {
-        toast.error(
-          error?.response?.data?.message || "Failed to check overtime",
-        );
-        console.error(error);
-      })
-      .finally(() => {
-        if (requestId === requestIdRef.current) cekLoader.stopLoading();
+    try {
+      submitLoader.startLoading();
+      await api.post("/overtime/", {
+        date: formatLocalDate(form.overtimeDate),
+        description: form.desc,
       });
+      resetForm();
+      fetchReqHistory();
+      showSuccess();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to submit!");
+    } finally {
+      submitLoader.stopLoading();
+    }
   }
 
-  function formatting(data) {
-    return data.map((d) => {
-      const status = d.is_overtime_eligible
-        ? "Berhak mendapatkan lembur"
-        : "Belum berhak mendapatkan lembur";
-      const timeToOvertime = Math.abs(d.raw_minutes);
-      return {
-        ...d,
-        status,
-        timeToOvertime,
-      };
-    });
-  }
-
-  async function fetchOvtHistory() {
+  async function fetchReqHistory() {
     historyLoader.startLoading();
     await api
       .get("/overtime/", {
@@ -89,197 +118,118 @@ export default function OvertimeRequest() {
         setOvtHistory(res.data);
       })
       .catch((error) => console.error(error))
-      .finally(historyLoader.stopLoading());
+      .finally(historyLoader.stopLoading);
+  }
+
+  async function fetchOvertimebyDate() {
+    const res = await api.get(`/overtime/`, {
+      params: {
+        date: formatLocalDate(form.overtimeDate),
+      },
+    });
+
+    const data = res.data?.[0];
+    setField("clockIn", data?.masuk ?? null);
+    setField("clockOut", data?.pulang ?? null);
+    setField("duration", data?.real_hours ?? null);
   }
 
   return (
     <div className="bg-slate-100 flex flex-1 flex-col p-0.5 min-h-0 overflow-auto scrollbar-hidden ">
       <div className="p-3 font-normal">
-        <h3 className="text-xl md:text-2xl font-medium">Overtime</h3>
+        <h3 className="text-xl md:text-2xl font-medium">Overtime Request</h3>
       </div>
 
       <div
-        className={`h-103 flex flex-col p-2 my-3 mx-4 rounded-2xl bg-slate-100 outline-1 outline-slate-400 shadow-sm transition-all duration-300
-            md:max-w-md md:mx-auto md:min-h-[420px]
-            lg:mx-4 `}
+        className={`flex flex-col bg-slate-100 mx-4 mt-5 mb-10 px-3 pt-3 pb-2 rounded-xl border  border-slate-400 shadow-sm  
+            md:max-w-2xl md:flex-row md:mx-auto 
+            lg:mx-4 lg:w-fit 
+            xl:max-w-3xl `}
+        key={formKey}
       >
-        <h3>Overtime Checking</h3>
-        <div className="flex gap-3 px-5 mt-3">
-          <FloatingDate
-            id="cekDate"
-            label={"Date"}
-            message={"Please enter valid date"}
-            selectedDate={date}
-            setSelectedDate={setDate}
-            displayValue={displayDate}
-            setDisplayValue={setDisplayDate}
-            border="border"
-            fontThickness="font-normal"
-          />
-          <div className="flex mb-4 lg:mb-6 items-center">
-            <Button btnLabel={"Check"} handleClick={handleCheck} btnWidth="" />
-          </div>
-        </div>
-
-        {detail.length === 0 && !cekLoader.loading && (
-          <div className="flex flex-col flex-1 justify-center items-center">
-            <p className="text-sm text-center">
-              Overtime is detected automatically by the system. <br />
-              Select a date and tap <span className="font-medium">
-                "Check"
-              </span>{" "}
-              <br />
-              to view the details.
-            </p>
-          </div>
-        )}
-
-        {cekLoader.loading ? (
-          <div className={`text-transparent `}>
-            <hr className="text-slate-400" />
-            <div className="flex flex-col flex-1 p-3 mt-5 mb-3 mx-2 justify-center outline-1 outline-slate-400 rounded-xl bg-slate-100 shadow-sm space-y-1">
-              <p
-                className={`skeleton font-medium text-center bg-slate-200 rounded-2xl`}
-              >
-                Loading
-              </p>
-              <hr className="my-2 text-slate-400" />
-              <div className="skeleton flex flex-1 mt-3 mb-1 text-sm bg-slate-200 rounded-2xl">
-                <p>Loading</p>
+        <div className="flex">
+          <form>
+            <div className="flex justify-between mb-8 items-start">
+              <h3 className="font-medium text-lg md:text-xl text-left">
+                Overtime Request Form
+              </h3>
+            </div>
+            <div className="flex flex-col items-center">
+              <FloatingDate
+                id="overtimeDate"
+                label="Overtime Date"
+                message="Please enter valid date"
+                selectedDate={form.overtimeDate}
+                setSelectedDate={(date) => setField("overtimeDate", date)}
+                displayValue={dateDisplay}
+                setDisplayValue={setDateDisplay}
+                border="border"
+                fontThickness="font-normal"
+              />
+            </div>
+            <div
+              className={`flex max-w-sm gap-2 mb-1 items-center transition-all duration-300 ${form.clockOut ? "opacity-100 -translate-y-2 pointer-events-auto" : "opacity-0 -translate-y-6 max-h-0 pointer-events-none"}`}
+            >
+              <div className="flex gap-2">
+                <FloatingTime
+                  id={"clockIn"}
+                  label={"Clock-in"}
+                  value={form.clockIn}
+                  border="border"
+                  fontThickness="font-normal"
+                  displayValue={formatMySQLTime(form.clockIn)}
+                  isDisable={true}
+                />
+                <FloatingTime
+                  id={"clockOut"}
+                  label={"Clock-out"}
+                  value={form.clockOut}
+                  border="border"
+                  fontThickness="font-normal"
+                  displayValue={formatMySQLTime(form.clockOut)}
+                  isDisable={true}
+                />
               </div>
-              <div className="flex flex-1 gap-3 mt-1 mb-3">
-                <div className="skeleton flex flex-col flex-1 outline-1 outline-slate-300 bg-slate-200 p-2 rounded-xl shadow-sm">
-                  <p className="font-medium text-sm text-left">Clock-in</p>
-                  <p className={`font-medium text-lg text-right `}>loading</p>
-                </div>
-                <div className="skeleton flex flex-col flex-1 outline-1 outline-slate-300 bg-slate-200 p-2 rounded-xl">
-                  <p className="font-medium text-sm text-left">Clock-out</p>
-                  <p className={`font-medium text-lg text-right `}>loading</p>
-                </div>
-              </div>
-              <div className="skeleton flex flex-1 text-sm bg-slate-200 rounded-2xl">
-                <p>Loading</p>
-              </div>
-              <div className="skeleton flex flex-1 text-sm bg-slate-200 rounded-2xl">
-                <p>Loading</p>
+              <div className="">
+                <FloatingInput
+                  id={"duration"}
+                  value={`${Number(form.duration)} Jam`}
+                  autoComplete="false"
+                  border="border"
+                  fontThickness="font-normal"
+                  inputFontSize="font-normal"
+                  isDisabled={true}
+                />
               </div>
             </div>
-          </div>
-        ) : (
-          detail.map((d, index) => {
-            return (
-              <div key={index}>
-                <hr className="text-slate-400" />
-                <div className="flex flex-col flex-1 p-3 mt-5 mb-3 mx-2 justify-center outline-1 outline-slate-400 rounded-xl bg-slate-100 shadow-md space-y-1">
-                  <p
-                    className={`font-medium text-center ${d?.is_overtime_eligible ? "text-blue-700" : "text-red-700"}`}
-                  >
-                    {d?.status}
-                  </p>
-                  <hr className="my-2 text-slate-400" />
-                  <div className="flex flex-1 mt-3 mb-1 text-sm ">
-                    <p>{formatDateIndo(d?.asattenddate_rev, "long")}</p>
-                  </div>
-                  {d?.is_workday === 0 && (
-                    <>
-                      {d?.checkin || d?.checkout ? (
-                        <>
-                          <div className="flex flex-1 gap-3">
-                            <div className="flex flex-col flex-1 outline-1 outline-slate-400 bg-slate-200 p-2 rounded-xl">
-                              <p className="font-medium text-sm text-left text-slate-600">
-                                Clock-in
-                              </p>
-                              <p
-                                className={`font-medium text-lg text-right ${!d?.checkin || d?.telat ? "text-red-600" : "text-black"}`}
-                              >
-                                {formatMySQLTime(d?.checkin) || "Missing"}
-                              </p>
-                            </div>
-                            <div className="flex flex-col flex-1 outline-1 outline-slate-400 bg-slate-200 p-2 rounded-xl">
-                              <p className="font-medium text-sm text-left text-slate-600">
-                                Clock-out
-                              </p>
-                              <p
-                                className={`font-medium text-lg text-right ${!d?.checkout || d?.pulang_cepat ? "text-red-600" : "text-black"}`}
-                              >
-                                {formatMySQLTime(d?.checkout) || "Missing"}
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex flex-1 justify-center py-4 outline-1 outline-red-400 bg-red-200 rounded-xl">
-                          <p className="font-medium text-base">
-                            {d?.description}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {d?.is_workday === 1 && (
-                    <>
-                      {d.attendance_status === 0 && (
-                        <div className="flex flex-1 gap-3 mb-2">
-                          <div className="flex flex-col flex-1 outline-1 outline-slate-400 bg-slate-200 p-2 rounded-xl shadow-sm">
-                            <p className="font-medium text-sm text-left text-slate-600">
-                              Clock-in
-                            </p>
-                            <p
-                              className={`font-medium text-lg text-right ${!d?.checkin || d?.telat ? "text-red-600" : "text-black"}`}
-                            >
-                              {formatMySQLTime(d?.checkin) || "Missing"}
-                            </p>
-                          </div>
-                          <div className="flex flex-col flex-1 outline-1 outline-slate-400 bg-slate-200 p-2 rounded-xl">
-                            <p className="font-medium text-sm text-left text-slate-600">
-                              Clock-out
-                            </p>
-                            <p
-                              className={`font-medium text-lg text-right ${!d?.checkout || d?.pulang_cepat ? "text-red-600" : "text-black"}`}
-                            >
-                              {formatMySQLTime(d?.checkout) || "Missing"}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {d.attendance_status === 1 && (
-                        <div className="flex flex-col flex-1 text-center outline-1 outline-slate-400 bg-slate-200 py-3 rounded-xl">
-                          <p className="font-medium text-base">
-                            {d.leave_name}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {d?.telat > 0 && (
-                    <div className="flex flex-1 justify-between text-sm ">
-                      <p>Late</p>
-                      <p>{minuteConvert(d?.telat)}</p>
+            <div className="flex flex-col items-center">
+              <FloatingTextArea
+                id="description"
+                inputRef={descriptionRef}
+                value={form.desc}
+                onValueChange={(desc) => setField("desc", desc)}
+                message={"Please enter the description"}
+                border="border"
+                labelFontThickness="font-normal"
+              />
+            </div>
+            <div className="flex justify-center items-center my-3">
+              <Button
+                handleClick={handleSubmit}
+                btndisable={submitLoader.loading}
+                btnLabel={
+                  submitLoader.loading ? (
+                    <div className="my-1.5">
+                      <BtnLoading />
                     </div>
-                  )}
-                  {d?.overtime_start && (
-                    <div className="flex flex-1 justify-between text-sm">
-                      <p>Start Overtime</p>
-                      <p>{formatMySQLTime(d.overtime_start) || "-"}</p>
-                    </div>
-                  )}
-                  {d?.raw_minutes < 0 && (
-                    <div className="flex flex-1 justify-between text-sm">
-                      <p>Time Remaining to Overtime</p>
-                      <p>{minuteConvert(d.timeToOvertime) || "-"}</p>
-                    </div>
-                  )}
-                  {d?.is_overtime_eligible === 1 && d?.durasi_asli > 0 && (
-                    <div className="flex flex-1 justify-between text-sm">
-                      <p>Overtime Duration</p>
-                      <p>{Number(d.durasi_asli)}h</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
+                  ) : (
+                    <div>Submit</div>
+                  )
+                }
+              />
+            </div>
+          </form>
+        </div>
       </div>
 
       <HistoryBar>
@@ -290,7 +240,7 @@ export default function OvertimeRequest() {
             </div>
           )}
           {historyLoader.loading
-            ? skeletonRows.map((index) => (
+            ? skeletonRows.map((m, index) => (
                 <div
                   key={index}
                   className="text-transparent flex flex-col w-55 lg:w-65 h-fit rounded-xl p-2 outline outline-slate-400 shadow-sm"
@@ -320,6 +270,10 @@ export default function OvertimeRequest() {
                     <div className="skeleton rounded-2xl bg-slate-200 flex text-xs">
                       <p>Loading</p>
                     </div>
+                    <hr className="text-slate-200 my-1" />
+                    <div className="skeleton rounded-2xl bg-slate-200 flex text-xs">
+                      <p>Loading</p>
+                    </div>
                   </div>
                 </div>
               ))
@@ -345,7 +299,11 @@ export default function OvertimeRequest() {
                     <div className="flex justify-evenly w-full rounded-xl p-2 gap-2 outline-1 outline-slate-400 shadow-sm font-medium text-[13px] text-center lg:text-base">
                       <div className="flex flex-col">
                         <p className="text-xs text-slate-500">Duration</p>
-                        <p>{Number(item?.real_hours)}h</p>
+                        <p>
+                          {item?.real_hours
+                            ? `${Number(item?.real_hours)} Jam`
+                            : `-`}
+                        </p>
                       </div>
                       <div className="flex flex-col">
                         <p className="text-xs text-slate-500">Date</p>
@@ -354,7 +312,9 @@ export default function OvertimeRequest() {
                     </div>
                     <div className="flex mt-2 justify-between text-xs">
                       <p>Clock In</p>
-                      <p>{formatMySQLTime(item?.masuk)}</p>
+                      <p>
+                        {item?.masuk ? `${formatMySQLTime(item?.masuk)}` : `-`}
+                      </p>
                     </div>
                     {item.telat > 0 && (
                       <div className="flex justify-between text-xs">
@@ -364,7 +324,15 @@ export default function OvertimeRequest() {
                     )}
                     <div className="flex justify-between text-xs">
                       <p>Clock Out</p>
-                      <p>{formatMySQLTime(item?.pulang)}</p>
+                      <p>
+                        {item?.pulang
+                          ? `${formatMySQLTime(item?.pulang)}`
+                          : `-`}
+                      </p>
+                    </div>
+                    <div className="flex justify-between text-xs gap-10">
+                      <p>Desc</p>
+                      <p className="text-right">{item?.keterangan}</p>
                     </div>
                     {item.rejection_notes && (
                       <div className="flex gap-10 justify-between text-xs">
@@ -374,35 +342,43 @@ export default function OvertimeRequest() {
                         </p>
                       </div>
                     )}
+                    <hr className="text-slate-400 shadow-sm" />
+                    <div className="flex justify-between text-xs font-medium">
+                      <p>Status:</p>
+                      <p>{item?.overtime_status_formatted}</p>
+                    </div>
                   </div>
-                  {/* <div className={`flex justify-center mt-2 gap-2`}>
-              <Button
-                btnLabel="Details"
-                btnWidth=""
-                btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60!"
-                textSize="text-xs shadow-sm!"
-                  handleClick={() => {
-                    openModal();
-                    setSelectedReq(item);
-                  }}
-              />
-              {item.fl_approve === 0 && (
-              <Button
-                btnLabel="Cancel"
-                btnWidth=""
-                btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60!"
-                textSize="text-xs shadow-sm!"
-                handleClick={() => {
-                  deleteModal();
-                  setSelectedReq(item);
-                }}
-              />
-               )} 
-            </div> */}
+                  <div className={`flex justify-center mt-2 gap-2`}>
+                    {item.overtime_status === "NEED_DESCRIPTION" &&
+                      item.fl_approve !== 2 && (
+                        <Button
+                          btnLabel="Input Description"
+                          btnWidth=""
+                          btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60!"
+                          textSize="text-xs shadow-sm!"
+                          handleClick={() => {
+                            setField("overtimeDate", new Date(item?.tgl));
+                            setDateDisplay(
+                              formatDateFromPicker(new Date(item?.tgl)),
+                            );
+                            descriptionRef.current?.focus();
+                          }}
+                        />
+                      )}
+                  </div>
                 </div>
               ))}
         </div>
       </HistoryBar>
+
+      <Modal openModal={open} onClose={close}>
+        {mode === "success" && (
+          <ModalPanel title={"Form Sent!"} handleClose={close}>
+            <FormSuccess />
+            <Button handleClick={close} btnLabel={"OK"} />
+          </ModalPanel>
+        )}
+      </Modal>
     </div>
   );
 }

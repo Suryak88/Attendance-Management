@@ -126,6 +126,20 @@ export default function Dashboard() {
       .finally(() => stopLoadingOvertime());
   }
 
+  function overtimeStatusConfig(sts) {
+    if (
+      sts === "WAITING_DETECTION" ||
+      sts === "NEED_DESCRIPTION" ||
+      sts === "WAITING_APPROVAL"
+    ) {
+      return "bg-amber-100 outline-amber-500 text-amber-700";
+    } else if (sts === "APPLIED") {
+      return "bg-green-100 outline-green-500 text-green-700";
+    } else if (sts === "REJECTED") {
+      return "bg-red-100 outline-red-500 text-red-700";
+    }
+  }
+
   return (
     <>
       {/* <div className="flex flex-1 justify-between min-h-0 rounded-xl shadow-md bg-black/20"> */}
@@ -299,13 +313,17 @@ export default function Dashboard() {
                           <span className={`flex items-center justify-center`}>
                             <Clock7 className="size-4.5 lg:size-5 xl:size-6" />
                           </span>
-                          <p>{Number(o?.real_hours)}h</p>
+                          <p>
+                            {o?.real_hours
+                              ? `${Number(o?.real_hours)} Jam`
+                              : "-"}
+                          </p>
                         </div>
 
                         <div
-                          className={`w-fit px-1 rounded-full outline-1 text-xs h-fit mt-0.5 ${approvalStatusConfig[o.fl_approve].badgeClass}`}
+                          className={`w-fit px-1 rounded-full outline-1 text-xs h-fit mt-0.5 ${overtimeStatusConfig(o?.overtime_status)}`}
                         >
-                          <p>{approvalStatusConfig[o?.fl_approve].label}</p>
+                          <p>{o?.overtime_status_formatted}</p>
                         </div>
                       </div>
                       <div className="flex justify-between">
