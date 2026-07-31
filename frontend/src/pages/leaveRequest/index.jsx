@@ -39,6 +39,7 @@ import { extractErrorMessage } from "../../utils/extractErrorBlob";
 import { ArrowRight, File, Info, X } from "lucide-react";
 import FloatingUpload from "../../components/atoms/FloatingUpload";
 import { FloatingPortal } from "@floating-ui/react";
+import AttachmentPreview from "../../components/organisms/AttachmentPreview";
 
 export default function LeaveRequest() {
   const { state } = useLocation();
@@ -1210,33 +1211,16 @@ export default function LeaveRequest() {
           </PopUpMenu>
         )}
 
-        <FloatingPortal>
-          <div
-            className={`fixed inset-0 flex items-center justify-center bg-black/50 ignore-popup-close z-999 transition-all duration-300 ease-in-out
-            ${openPreview ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-            onClick={() => setOpenPreview(false)}
-          >
-            {selectedReq?.medical_certificate_mime?.startsWith("image/") ? (
-              previewFileLoader.loading ? (
-                <BtnLoading />
-              ) : (
-                <img
-                  src={previewFiles}
-                  onClick={(e) => e.stopPropagation()}
-                  className="max-h-[75vh] max-w-[75vw] rounded-lg shadow-2xl object-cover"
-                />
-              )
-            ) : previewFileLoader.loading ? (
-              <BtnLoading />
-            ) : (
-              <iframe
-                src={previewFiles}
-                className="w-[80vw] md:w-[60vw] h-[70vh] md:h-[85vh] rounded-lg"
-                title="Medical Certificate Preview"
-              />
-            )}
-          </div>
-        </FloatingPortal>
+        <AttachmentPreview
+          open={openPreview}
+          onClose={() => setOpenPreview(false)}
+          file={{
+            url: previewFiles,
+            mime: selectedReq?.medical_certificate_mime,
+            originName: selectedReq?.medical_certificate_original_name,
+          }}
+          loading={previewFileLoader.loading}
+        />
       </div>
     </>
   );
