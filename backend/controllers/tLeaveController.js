@@ -1390,6 +1390,10 @@ export async function bulkLeaveApprove(req, res) {
       [ids],
     );
 
+    console.log(`ids: ${ids}`);
+    console.log(`rows.length: ${rows.length}`);
+    console.log(`ids.length: ${ids.length}`);
+
     if (rows.length !== ids.length) {
       throw new BusinessError(
         "INVALID_REQUEST",
