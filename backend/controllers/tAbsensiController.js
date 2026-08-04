@@ -739,7 +739,8 @@ export async function showLatePenalty(req, res) {
 
   const loginRegnum = req.user.regnum;
   const { startDate, endDate, targetRegnum } = req.query;
-
+  const spv = [];
+  const penalty = [];
   let effectiveRegnum = loginRegnum;
 
   if (targetRegnum === "all") {
@@ -753,17 +754,45 @@ export async function showLatePenalty(req, res) {
       await authorityChecking(conn, targetRegnum, loginRegnum);
     }
 
-    const [[logs]] = await conn.query("CALL khabsensi_user(?, ?, ?, ?, ?)", [
-      loginRegnum,
-      effectiveRegnum,
-      startDate,
-      endDate,
-      0,
-    ]);
+    const [[isAdmin]] = await conn.query(
+      `SELECT is_penalty_admin, floor_id 
+      FROM reg_person 
+      WHERE regnum = ?`,
+      [loginRegnum],
+    );
+
+    if (isAdmin.is_penalty_admin === 1) {
+      const [approvers] = await conn.query(
+        `SELECT DISTINCT approver FROM reg_person WHERE floor_id = ? AND approver IS NOT NULL`,
+        [isAdmin.floor_id],
+      );
+
+      const logsPerSupervisor = await Promise.all(
+        approvers.map(async ({ approver }) => {
+          const [[logs]] = await conn.query(
+            "CALL khabsensi_user(?, ?, ?, ?, ?)",
+            [approver, effectiveRegnum, startDate, endDate, 0],
+          );
+
+          return logs;
+        }),
+      );
+
+      penalty.push(...logsPerSupervisor.flat());
+    } else {
+      const [[logs]] = await conn.query("CALL khabsensi_user(?, ?, ?, ?, ?)", [
+        loginRegnum,
+        effectiveRegnum,
+        startDate,
+        endDate,
+        0,
+      ]);
+      penalty.push(...logs);
+    }
 
     const [rules] = await conn.query("SELECT * FROM m_attendance_penalty");
 
-    const result = buildLatePenalty(logs, rules);
+    const result = buildLatePenalty(penalty, rules);
 
     res.json(result);
   } catch (error) {
@@ -783,14 +812,23 @@ export async function generatePenaltyPDF(req, res) {
     const reports = [];
     const template = loadTemplate("attendance-penalty.html");
 
-    for (const reg of employees) {
-      const [[valid]] = await conn.query(
-        `SELECT 1 FROM reg_person
-        WHERE regnum = ? AND (approver = ? OR regnum = ?)`,
-        [reg, loginRegnum, loginRegnum],
-      );
+    const [[isAdmin]] = await conn.query(
+      `SELECT is_penalty_admin
+      FROM reg_person 
+      WHERE regnum = ?`,
+      [loginRegnum],
+    );
 
-      if (!valid) continue;
+    for (const reg of employees) {
+      if (isAdmin === 0) {
+        const [[valid]] = await conn.query(
+          `SELECT 1 FROM reg_person
+          WHERE regnum = ? AND (approver = ? OR regnum = ?)`,
+          [reg, loginRegnum, loginRegnum],
+        );
+
+        if (!valid) continue;
+      }
 
       const [[logs]] = await conn.query("CALL khabsensi_user(?, ?, ?, ?, ?)", [
         loginRegnum,
@@ -846,5 +884,29 @@ export async function generatePenaltyPDF(req, res) {
     res.status(500).json({ message: error.message });
   } finally {
     conn.release();
+  }
+}
+
+// untuk hrd agar bisa buka semua karyawan lt 6
+export async function getEmployeeHRD(req, res) {
+  try {
+    const loginRegnum = req.user.regnum;
+
+    const [[isAdmin]] = await dbAbsensi.query(
+      `SELECT is_penalty_admin FROM reg_person WHERE regnum = ?`,
+      [loginRegnum],
+    );
+
+    if (!isAdmin) {
+      throw new BusinessError("FORBIDDEN", "FORBIDDEN");
+    }
+
+    const [employee] = await dbAbsensi.query(
+      `SELECT * FROM reg_person WHERE approver = 211 OR approver = 11 ORDER BY namalengkap`,
+    );
+
+    res.json(employee);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 }

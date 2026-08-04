@@ -1,7 +1,9 @@
 import jwt from "jsonwebtoken";
 
 export default function authMiddleware(req, res, next) {
-  console.log("AUTH HEADER:", req.headers.authorization);
+  if (process.env.NODE_ENV !== "production") {
+    console.log("AUTH HEADER:", req.headers.authorization);
+  }
 
   const authHeader = req.headers.authorization;
 

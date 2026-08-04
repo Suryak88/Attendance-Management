@@ -83,6 +83,7 @@ export default function AttendanceReport() {
     }));
   }, [subordinates]);
   const employeeOptions = [{ label: "All", value: "all" }, ...subordinate];
+  const [employeeOptionsbyHRD, setEmployeeOptionsbyHRD] = useState([]);
   const STORAGE_KEY = "attendance-report-filter";
   const savedFilter = sessionStorage.getItem(STORAGE_KEY);
   const defaultFilter = {
@@ -182,6 +183,9 @@ export default function AttendanceReport() {
     if (!user || !activeFilter.month) return;
     fetchReport();
     fetchLeaveQuota();
+    if (user?.penAdm) {
+      fetchEmployee();
+    }
   }, [user, activeFilter]);
 
   function updateField(field, value) {
@@ -203,6 +207,20 @@ export default function AttendanceReport() {
       endDate: filter.endDate,
       employee: user?.regnum,
     };
+  }
+
+  async function fetchEmployee() {
+    api
+      .get(`/attendanceReport/employee`)
+      .then((res) => {
+        const employee = res.data.map((e) => ({
+          label: e.namalengkap.trim(),
+          value: e.regnum,
+        }));
+        setEmployeeOptionsbyHRD([{ label: "All", value: "all" }, ...employee]);
+        console.log(employee.length);
+      })
+      .catch((error) => console.error(error));
   }
 
   async function fetchReport() {
@@ -1711,7 +1729,7 @@ export default function AttendanceReport() {
                     />
                   </div>
                 </div>
-                {subordinates.length > 1 && (
+                {(subordinates.length > 1 || user?.penAdm) && (
                   <div className=" w-70 max-w-70">
                     <div className="w-full">
                       <h3 className="text-sm font-medium text-slate-700 -mb-1">
@@ -1719,7 +1737,9 @@ export default function AttendanceReport() {
                       </h3>
                       <FloatingSelect
                         id={"Employee"}
-                        options={employeeOptions}
+                        options={
+                          user?.penAdm ? employeeOptionsbyHRD : employeeOptions
+                        }
                         value={form.employee}
                         onValueChange={(v) => updateField("employee", v)}
                         inputFontSize="text-sm"
@@ -1797,7 +1817,7 @@ export default function AttendanceReport() {
                         className={`flex w-full py-0.5 text-sm justify-between cursor-pointer  rounded-lg hover:bg-slate-200`}
                         onClick={() => toggleExpand(penalty.regnum)}
                       >
-                        {subordinates.length > 1 && (
+                        {(subordinates.length > 1 || user?.penAdm) && (
                           <div
                             className="flex items-center"
                             onClick={(e) => e.stopPropagation()}
@@ -1844,7 +1864,7 @@ export default function AttendanceReport() {
                   ))
                 )}
               </div>
-              {subordinates.length > 1 && (
+              {(subordinates.length > 1 || user?.penAdm) && (
                 <div className="flex w-full justify-around mt-10 mb-3">
                   <Button
                     btnLabel={"Clear Check"}

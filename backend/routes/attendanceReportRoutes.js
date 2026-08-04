@@ -8,6 +8,7 @@ import {
   fetchCloseAttendanceStatus,
   showLatePenalty,
   generatePenaltyPDF,
+  getEmployeeHRD,
 } from "../controllers/tAbsensiController.js";
 import { submitCloseAttendance } from "../controllers/tAttendanceCloseController.js";
 
@@ -21,5 +22,6 @@ router.post("/solveConflict/", authMiddleware, submitSolveConflict);
 router.post("/closeStatus/", authMiddleware, fetchCloseAttendanceStatus);
 router.get("/attendancePenalty/", authMiddleware, showLatePenalty);
 router.post("/generate-penalty-PDF/", authMiddleware, generatePenaltyPDF);
+router.get("/employee/", authMiddleware, getEmployeeHRD);
 
 export default router;
