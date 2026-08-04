@@ -893,7 +893,7 @@ export async function getEmployeeHRD(req, res) {
     const loginRegnum = req.user.regnum;
 
     const [[isAdmin]] = await dbAbsensi.query(
-      `SELECT is_penalty_admin FROM reg_person WHERE regnum = ?`,
+      `SELECT is_penalty_admin, floor_id FROM reg_person WHERE regnum = ?`,
       [loginRegnum],
     );
 
@@ -902,7 +902,8 @@ export async function getEmployeeHRD(req, res) {
     }
 
     const [employee] = await dbAbsensi.query(
-      `SELECT * FROM reg_person WHERE approver = 211 OR approver = 11 ORDER BY namalengkap`,
+      `SELECT * FROM reg_person WHERE floor_id = ? ORDER BY namalengkap`,
+      [isAdmin.floor_id],
     );
 
     res.json(employee);
