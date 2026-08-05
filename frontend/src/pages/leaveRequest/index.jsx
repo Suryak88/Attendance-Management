@@ -645,7 +645,7 @@ export default function LeaveRequest() {
             <div className="flex justify-end items-center gap-3 mb-3">
               <p className="text-xs relative">Total leave days: {totalDays}</p>
               <button
-                className="shadow-sm bg-slate-300 rounded-full w-fit px-3 hover:bg-slate-400 hover:text-white cursor-pointer outline outline-slate-400"
+                className="shadow-sm bg-slate-300 rounded-full z-20 w-fit px-3 hover:bg-slate-400 hover:text-white cursor-pointer outline outline-slate-400"
                 onClick={handleClear}
               >
                 Reset
