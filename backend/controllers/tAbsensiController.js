@@ -260,16 +260,21 @@ export async function generateReportPDF(req, res) {
           timeout: 30000,
         });
 
-        const pdf = await page.pdf({
-          format: "A4",
-          printBackground: true,
-          margin: {
-            top: "20px",
-            bottom: "20px",
-            left: "20px",
-            right: "20px",
-          },
-        });
+        const pdf = await Promise.race([
+          page.pdf({
+            format: "A4",
+            printBackground: true,
+            margin: {
+              top: "20px",
+              bottom: "20px",
+              left: "20px",
+              right: "20px",
+            },
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("PDF Timeout")), 60000),
+          ),
+        ]);
 
         return pdf;
       } finally {
@@ -857,16 +862,21 @@ export async function generatePenaltyPDF(req, res) {
           timeout: 30000,
         });
 
-        const pdf = await page.pdf({
-          format: "A4",
-          printBackground: true,
-          margin: {
-            top: "20px",
-            bottom: "20px",
-            left: "20px",
-            right: "20px",
-          },
-        });
+        const pdf = await Promise.race([
+          page.pdf({
+            format: "A4",
+            printBackground: true,
+            margin: {
+              top: "20px",
+              bottom: "20px",
+              left: "20px",
+              right: "20px",
+            },
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("PDF Timeout")), 60000),
+          ),
+        ]);
 
         return pdf;
       } finally {
