@@ -23,12 +23,12 @@ export default function UpdateData() {
   const hadirrLoader = useDelayedLoading();
   const resetForm = useCallback(() => {
     setTimeout(() => {
-      setForm({
-        startDate: null,
-        endDate: null,
-      });
-      setStartDisplay("");
-      setEndDisplay("");
+      // setForm({
+      //   startDate: null,
+      //   endDate: null,
+      // });
+      // setStartDisplay("");
+      // setEndDisplay("");
     }, 300);
     setFormKey((k) => k + 1);
   }, []);
@@ -88,6 +88,39 @@ export default function UpdateData() {
     setTimeout(() => {
       resetForm();
     }, 300);
+  }
+
+  async function handleSyncCuti() {
+    if (!form.startDate || !form.endDate) {
+      toast.error("Enter valid date!");
+      return;
+    }
+    if (isEndDateInvalid) {
+      toast.error("Invalid date");
+      return;
+    }
+    try {
+      hadirrLoader.startLoading();
+      const res = await api.post(
+        "/hadirr/syncCuti",
+        {},
+        {
+          params: {
+            startDate: formatLocalDate(form.startDate),
+            endDate: formatLocalDate(form.endDate),
+          },
+        },
+      );
+      setInserted(res.data.inserted);
+
+      openWithMode("salesUpdated");
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to Update from Hadirr",
+      );
+    } finally {
+      hadirrLoader.stopLoading();
+    }
   }
 
   return (
@@ -168,6 +201,19 @@ export default function UpdateData() {
                   <div className="flex w-full justify-center">
                     Update Data Collector
                   </div>
+                )}
+              </button>
+              <button
+                onClick={handleSyncCuti}
+                className="flex px-2 py-1 w-25 -translate-y-3 bg-slate-100 rounded-lg shadow-sm font-medium text-sm outline-1 cursor-pointer transition-all outline-slate-400 hover:text-black/60 hover:outline-slate-500 hover:shadow-md items-center gap-2 disabled:text-black/40"
+                disabled={hadirrLoader.loading}
+              >
+                {hadirrLoader.loading ? (
+                  <div className="flex w-full justify-center">
+                    <BtnLoading label={"Updating "} />
+                  </div>
+                ) : (
+                  <div className="flex w-full justify-center">Sync Cuti</div>
                 )}
               </button>
             </div>
