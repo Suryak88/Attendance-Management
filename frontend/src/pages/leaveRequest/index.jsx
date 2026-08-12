@@ -396,7 +396,7 @@ export default function LeaveRequest() {
   }
 
   async function handleGeneratePDF() {
-    const fileName = `${selectedReq?.leavename} - ${selectedReq?.fullname}.pdf`;
+    const fileName = `${selectedReq?.leavename} - ${selectedReq?.fullname?.trim()}.pdf`;
 
     try {
       pdfLoader.startLoading();

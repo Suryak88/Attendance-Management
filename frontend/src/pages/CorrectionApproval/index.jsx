@@ -203,6 +203,7 @@ export default function CorrectionApproval() {
         lateExcused,
         earlyLeaveExcused,
       });
+      removeFromCheckedIds(selectedRequest.id);
       await fetchCorrectionRequests();
       showSuccess();
     } catch (error) {
@@ -268,6 +269,7 @@ export default function CorrectionApproval() {
       await api.put(`/correctionApproval/reject/${selectedRequest.id}`, {
         notes: rejectNotes,
       });
+      removeFromCheckedIds(selectedRequest.id);
       await fetchCorrectionRequests();
       showSuccess();
     } catch (error) {
@@ -407,6 +409,10 @@ export default function CorrectionApproval() {
     }
 
     setCheckedIds((prev) => [...new Set([...prev, ...pendingIds])]);
+  }
+
+  function removeFromCheckedIds(id) {
+    setCheckedIds((prev) => prev.filter((itemId) => itemId !== id));
   }
 
   function handleClickDetail(item) {
@@ -682,7 +688,11 @@ export default function CorrectionApproval() {
             <ModalPanel
               title={selectedRequest?.namalengkap}
               titlePosition="text-left"
-              subtitle={`${selectedRequest?.jabatan} - ${selectedRequest?.divisi}`}
+              subtitle={
+                selectedRequest?.departemen_id
+                  ? `${selectedRequest?.jabatan}`
+                  : `${selectedRequest?.jabatan} - ${selectedRequest?.departemen}`
+              }
               handleClose={handleClose}
               badgeColor={statusConfig?.badgeClass ?? ""}
               badgeLabel={statusConfig?.label ?? ""}

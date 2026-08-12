@@ -152,6 +152,7 @@ export default function OvertimeApproval() {
       await api.put(`/overtimeApproval/reject/${selectedRequest.id}`, {
         notes: rejectNotes,
       });
+      removeFromCheckedIds(selectedRequest.id);
       await fetchOvertimeRequests();
       showSuccess();
     } catch (error) {
@@ -167,6 +168,7 @@ export default function OvertimeApproval() {
     try {
       submitLoader.startLoading();
       await api.put(`/overtimeApproval/approve/${selectedRequest.id}`);
+      removeFromCheckedIds(selectedRequest.id);
       await fetchOvertimeRequests();
       showSuccess();
     } catch (error) {
@@ -305,6 +307,10 @@ export default function OvertimeApproval() {
     }
 
     setCheckedIds((prev) => [...new Set([...prev, ...pendingIds])]);
+  }
+
+  function removeFromCheckedIds(id) {
+    setCheckedIds((prev) => prev.filter((itemId) => itemId !== id));
   }
 
   return (
@@ -557,7 +563,11 @@ export default function OvertimeApproval() {
               <ModalPanel
                 title={selectedRequest?.fullname}
                 titlePosition="text-left"
-                subtitle={`${selectedRequest?.jabatan} - ${selectedRequest?.divisi}`}
+                subtitle={
+                  selectedRequest?.departemen_id
+                    ? `${selectedRequest?.jabatan}`
+                    : `${selectedRequest?.jabatan} - ${selectedRequest?.departemen}`
+                }
                 handleClose={handleClose}
                 badgeColor={statusConfig?.badgeClass ?? ""}
                 badgeLabel={statusConfig?.label ?? ""}

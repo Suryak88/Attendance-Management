@@ -210,6 +210,7 @@ export default function LeaveApproval() {
     try {
       submitLoader.startLoading();
       await api.put(`/leaveApproval/approve/${selectedRequest.id}`);
+      removeFromCheckedIds(selectedRequest.id);
       await fetchLeaveRequests();
       showSuccess();
     } catch (error) {
@@ -260,6 +261,7 @@ export default function LeaveApproval() {
       await api.put(`/leaveApproval/reject/${selectedRequest.id}`, {
         notes: rejectNotes,
       });
+      removeFromCheckedIds(selectedRequest.id);
       await fetchLeaveRequests();
       showSuccess();
     } catch (error) {
@@ -408,7 +410,7 @@ export default function LeaveApproval() {
 
   async function handleGeneratePDF(e) {
     e.preventDefault();
-    const fileName = `${selectedRequest?.leaveName} - ${selectedRequest?.fullname}.pdf`;
+    const fileName = `${selectedRequest?.leaveName} - ${selectedRequest?.fullname.trim()}.pdf`;
 
     try {
       pdfLoader.startLoading();
@@ -518,6 +520,10 @@ export default function LeaveApproval() {
     }
 
     setCheckedIds((prev) => [...new Set([...prev, ...pendingIds])]);
+  }
+
+  function removeFromCheckedIds(id) {
+    setCheckedIds((prev) => prev.filter((itemId) => itemId !== id));
   }
 
   async function handleClickDetail(item) {
@@ -850,7 +856,11 @@ export default function LeaveApproval() {
               <ModalPanel
                 title={selectedRequest?.namalengkap}
                 titlePosition="text-left"
-                subtitle={`${selectedRequest?.jabatan} - ${selectedRequest?.divisi}`}
+                subtitle={
+                  selectedRequest?.departemen_id
+                    ? `${selectedRequest?.jabatan}`
+                    : `${selectedRequest?.jabatan} - ${selectedRequest?.departemen}`
+                }
                 handleClose={handleClose}
                 badgeColor={statusConfig?.badgeClass ?? ""}
                 badgeLabel={statusConfig?.label ?? ""}
