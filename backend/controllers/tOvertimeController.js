@@ -95,8 +95,9 @@ export async function showOvertimeRequest(req, res) {
     let query = `SELECT
     	  a.*,
     	  b.namalengkap,
-    	  b.divisi,
-    	  b.jabatan,
+    	  d.nama AS departemen,
+    	  e.departemen_id, 
+    	  e.nama AS jabatan,
     	  GREATEST(
     	    0,
     	    TIMESTAMPDIFF(
@@ -109,6 +110,8 @@ export async function showOvertimeRequest(req, res) {
       LEFT JOIN reg_person b ON a.regnum = b.regnum 
       LEFT JOIN m_work_calendar wc ON a.tgl = wc.work_date
       LEFT JOIN m_shift s ON wc.shift_id = s.id 
+      LEFT JOIN m_departemen d ON b.departemen_id = d.id
+      LEFT JOIN m_jabatan e ON b.jabatan_id = e.id
       WHERE b.approver = ? 
       AND a.tgl BETWEEN ? AND ?
       AND a.keterangan IS NOT NULL     

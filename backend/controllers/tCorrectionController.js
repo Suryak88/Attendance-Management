@@ -202,7 +202,7 @@ export async function showCorrectionRequest(req, res) {
     const regnum = req.user.regnum;
     const { startDate, endDate, status, targetRegnum } = req.query;
 
-    let query = `SELECT a.*, b.namalengkap, b.divisi, b.jabatan,
+    let query = `SELECT a.*, b.namalengkap, d.nama as departemen, e.departemen_id, e.nama as jabatan,
         CASE WHEN a.fl_approve = 0 THEN 'Pending' 
         WHEN a.fl_approve = 1 THEN 'Approved'
         ELSE 'Rejected' END AS "status",
@@ -212,6 +212,8 @@ export async function showCorrectionRequest(req, res) {
         LEFT JOIN reg_person b ON a.regnum = b.regnum 
         LEFT JOIN m_work_calendar wc ON wc.work_date = a.tgl
 	      LEFT JOIN m_shift s ON s.id = wc.shift_id
+        LEFT JOIN m_departemen d ON b.departemen_id = d.id
+	      LEFT JOIN m_jabatan e ON b.jabatan_id = e.id
         WHERE b.approver = ? 
         AND a.tgl BETWEEN ? AND ?
         AND a.fl_approve <> 3 `;
@@ -430,12 +432,12 @@ export async function bulkCorrectionApprove(req, res) {
 
       const invalidIds = ids.filter((id) => !foundIds.includes(id));
 
-      console.log("requested ids:", ids);
+      console.log("BULK CORRECTION APPROVE ERROR");
       console.log("found ids:", foundIds);
       console.log("invalid ids:", invalidIds);
       throw new BusinessError(
         "INVALID_REQUEST",
-        "Terdapat leave yang tidak valid",
+        "Terdapat request yang tidak valid",
       );
     }
 

@@ -157,8 +157,11 @@ export async function printAllReport(req, res) {
       const { summary, flags } = buildSummary(logs);
 
       const [[user]] = await conn.query(
-        `SELECT * FROM reg_person 
-        WHERE regnum = ?`,
+        `SELECT *, d.nama AS departemen_new, j.departemen_id, j.nama AS jabatan_new
+          FROM reg_person rp 
+          LEFT JOIN m_departemen d ON rp.departemen_id = d.id 
+          LEFT JOIN m_jabatan j ON rp.jabatan_id = j.id
+          WHERE regnum =  ?`,
         [reg],
       );
 
@@ -166,8 +169,8 @@ export async function printAllReport(req, res) {
         employee: {
           regnum: user.regnum,
           namalengkap: user.namalengkap,
-          divisi: user.divisi,
-          jabatan: user.jabatan,
+          departemen: user.departemen_new,
+          jabatan: user.jabatan_new,
         },
         logs,
         summary,
@@ -234,8 +237,11 @@ export async function generateReportPDF(req, res) {
       const status_header = getStatusHeader(flags);
 
       const [[user]] = await conn.query(
-        `SELECT regnum, namalengkap, divisi, jabatan 
-         FROM reg_person WHERE regnum = ?`,
+        `SELECT rp.regnum, rp.namalengkap, d.nama AS departemen, j.departemen_id, j.nama AS jabatan
+          FROM reg_person rp 
+          LEFT JOIN m_departemen d ON rp.departemen_id = d.id 
+          LEFT JOIN m_jabatan j ON rp.jabatan_id = j.id
+          WHERE regnum = ?`,
         [reg],
       );
 

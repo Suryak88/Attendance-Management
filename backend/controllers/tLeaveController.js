@@ -315,7 +315,7 @@ export async function showLeaveRequest(req, res) {
     const regnum = req.user.regnum;
     const { startDate, endDate, status, targetRegnum } = req.query;
 
-    let query = `SELECT a.*, DATE(a.tgl1) AS tglmulai, DATE(a.tgl2) AS tglakhir, c.nama AS "leaveName", b.namalengkap, b.divisi, b.jabatan, 
+    let query = `SELECT a.*, DATE(a.tgl1) AS tglmulai, DATE(a.tgl2) AS tglakhir, c.nama AS "leaveName", b.namalengkap,  d.nama AS departemen, e.departemen_id, e.nama AS jabatan,
         CASE WHEN a.fl_approve = 0 THEN 'Pending' 
         WHEN a.fl_approve = 1 THEN 'Approved'
         ELSE 'Rejected' END AS "status",
@@ -345,6 +345,8 @@ export async function showLeaveRequest(req, res) {
               GROUP BY t_leave_id) r2
               ON r1.id = r2.max_id) r
           ON r.t_leave_id = a.id
+        LEFT JOIN m_departemen d ON b.departemen_id = d.id
+        LEFT JOIN m_jabatan e ON b.jabatan_id = e.id
         WHERE b.approver = ? 
         AND (
              tgl1 BETWEEN ? AND ?
@@ -933,7 +935,6 @@ export async function generatePDF(req, res) {
     const loginRegnum = req.user.regnum;
     const { id } = req.params;
     const { targetRegnum } = req.body;
-    const data = [];
     const template = loadTemplate();
     let effectiveRegnum = loginRegnum;
     if (targetRegnum !== undefined && targetRegnum !== "") {
@@ -951,12 +952,12 @@ export async function generatePDF(req, res) {
     }
 
     const [[leave]] = await conn.query(
-      `SELECT a.*, c.nama AS leavename, c.need_quota, c.day_type, b.namalengkap, b.divisi, b.jabatan
+      `SELECT a.*, c.nama AS leavename, c.need_quota, c.day_type, b.namalengkap, d.nama AS departemen, e.departemen_id, e.nama AS jabatan
       FROM t_leave a
-      JOIN reg_person b
-      ON a.regnum = b.regnum
-      JOIN m_leave c 
-      ON a.leave_id = c.id
+      JOIN reg_person b ON a.regnum = b.regnum
+      JOIN m_leave c ON a.leave_id = c.id
+      JOIN m_departemen d ON b.departemen_id = d.id 
+      JOIN m_jabatan e ON b.jabatan_id = e.id
       WHERE a.id = ? AND a.regnum = ?`,
       [id, effectiveRegnum],
     );
@@ -975,7 +976,7 @@ export async function generatePDF(req, res) {
       duration = calendarRows.total;
     }
 
-    data.push({ leave, duration });
+    const data = { ...leave, duration };
     const html = buildLeaveHtml(template, data);
 
     // const browser = await puppeteer.launch({
@@ -1015,9 +1016,11 @@ export async function generatePDF(req, res) {
       }
     });
 
+    const fileName = `Leave Request ${leave.fullname.trim()}.pdf`;
+
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename=Leave Request ${leave.fullname}.pdf`,
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
     });
 
     res.send(result);

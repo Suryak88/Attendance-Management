@@ -3,6 +3,7 @@ import path from "path";
 import { formatDateIndo, formatMySQLTime } from "./date.js";
 import { formatDailyStatus } from "./formatDailyStatus.js";
 import { formatValue } from "./formatValueforPDF.js";
+import { formatCapitalize } from "./formatCapitalize.js";
 
 const logoPath = path.join(process.cwd(), "assets", "logo.png");
 const logoBase64 = fs.readFileSync(logoPath, "base64");
@@ -200,7 +201,10 @@ export function buildHTML(template, reports, period) {
       return template
         .replace(/{{logo}}/g, logoSrc)
         .replace(/{{nama}}/g, report.employee.namalengkap)
-        .replace(/{{divisi}}/g, report.employee.divisi)
+        .replace(
+          /{{departemen}}/g,
+          formatCapitalize(report.employee.departemen),
+        )
         .replace(/{{jabatan}}/g, report.employee.jabatan)
         .replace(/{{periode}}/g, periodDisplay)
         .replace(/{{status}}/g, report.status_header)
