@@ -349,6 +349,7 @@ export default function CorrectionApproval() {
   }
 
   function handleApplyFilter() {
+    setCheckedIds([]);
     applyFilter();
 
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draftFilter));

@@ -359,6 +359,7 @@ export default function LeaveApproval() {
   }
 
   function handleApplyFilter() {
+    setCheckedIds([]);
     applyFilter();
 
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draftFilter));

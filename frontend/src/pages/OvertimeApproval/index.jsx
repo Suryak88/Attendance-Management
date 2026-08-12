@@ -242,6 +242,7 @@ export default function OvertimeApproval() {
   }
 
   function handleApplyFilter() {
+    setCheckedIds([]);
     applyFilter();
 
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draftFilter));
