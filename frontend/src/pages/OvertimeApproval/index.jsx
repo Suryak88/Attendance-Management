@@ -34,6 +34,7 @@ import SidebarButton from "../../components/atoms/SidebarButton/index.jsx";
 import CheckBox from "../../components/atoms/CheckBox/index.jsx";
 import { truncateText } from "../../utils/truncateText.js";
 import { Check, EllipsisVertical, X } from "lucide-react";
+import { formatCapitalize } from "../../utils/formatCapitalize.js";
 
 export default function OvertimeApproval() {
   const { user, subordinates } = useContext(AuthContext);
@@ -566,8 +567,8 @@ export default function OvertimeApproval() {
                 titlePosition="text-left"
                 subtitle={
                   selectedRequest?.departemen_id
-                    ? `${selectedRequest?.jabatan}`
-                    : `${selectedRequest?.jabatan} - ${selectedRequest?.departemen}`
+                    ? `${formatCapitalize(selectedRequest?.jabatan)}`
+                    : `${formatCapitalize(selectedRequest?.jabatan)} - ${formatCapitalize(selectedRequest?.departemen)}`
                 }
                 handleClose={handleClose}
                 badgeColor={statusConfig?.badgeClass ?? ""}

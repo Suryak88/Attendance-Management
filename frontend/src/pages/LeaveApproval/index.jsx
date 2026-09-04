@@ -50,6 +50,7 @@ import { truncateText } from "../../utils/truncateText";
 import SidebarButton from "../../components/atoms/SidebarButton";
 import { FloatingPortal } from "@floating-ui/react";
 import AttachmentPreview from "../../components/organisms/AttachmentPreview";
+import { formatCapitalize } from "../../utils/formatCapitalize";
 
 export default function LeaveApproval() {
   const { user, subordinates } = useContext(AuthContext);
@@ -859,8 +860,8 @@ export default function LeaveApproval() {
                 titlePosition="text-left"
                 subtitle={
                   selectedRequest?.departemen_id
-                    ? `${selectedRequest?.jabatan}`
-                    : `${selectedRequest?.jabatan} - ${selectedRequest?.departemen}`
+                    ? `${formatCapitalize(selectedRequest?.jabatan)}`
+                    : `${formatCapitalize(selectedRequest?.jabatan)} - ${formatCapitalize(selectedRequest?.departemen)}`
                 }
                 handleClose={handleClose}
                 badgeColor={statusConfig?.badgeClass ?? ""}

@@ -35,6 +35,7 @@ import { columns } from "../../data/correctionApprovalTableHead";
 import CheckBox from "../../components/atoms/CheckBox";
 import PopUpMenu from "../../components/organisms/PopUpMenu";
 import SidebarButton from "../../components/atoms/SidebarButton";
+import { formatCapitalize } from "../../utils/formatCapitalize";
 
 export default function CorrectionApproval() {
   const { user, subordinates } = useContext(AuthContext);
@@ -691,8 +692,8 @@ export default function CorrectionApproval() {
               titlePosition="text-left"
               subtitle={
                 selectedRequest?.departemen_id
-                  ? `${selectedRequest?.jabatan}`
-                  : `${selectedRequest?.jabatan} - ${selectedRequest?.departemen}`
+                  ? `${formatCapitalize(selectedRequest?.jabatan)}`
+                  : `${formatCapitalize(selectedRequest?.jabatan)} - ${formatCapitalize(selectedRequest?.departemen)}`
               }
               handleClose={handleClose}
               badgeColor={statusConfig?.badgeClass ?? ""}
