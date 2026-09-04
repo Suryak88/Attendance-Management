@@ -17,20 +17,23 @@ export default function FilterBar({ employeeName, handleClick }) {
         >
           person
         </span> */}
-        <span
-          className="align-middle leading-none select-none
+        {employeeName && (
+          <span
+            className="align-middle leading-none select-none
                                 pr-2 text-[19px]!
                                 lg:px-1.5 lg:text-xl!
                                 xl:pr-3 xl:text-[24px]!"
-          style={{
-            fontVariationSettings: "'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24",
-          }}
-        >
-          <UserRound
-            strokeWidth={"1.5px"}
-            className="size-4.5 lg:size-5 xl:size-6"
-          />
-        </span>
+            style={{
+              fontVariationSettings:
+                "'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24",
+            }}
+          >
+            <UserRound
+              strokeWidth={"1.5px"}
+              className="size-4.5 lg:size-5 xl:size-6"
+            />
+          </span>
+        )}
         <p className="text-sm md:hidden">{truncateText(employeeName, 6)}</p>
         <p className="hidden md:flex lg:text-base">{employeeName}</p>
       </div>
