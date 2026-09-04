@@ -9,6 +9,7 @@ export default function FloatingCreatableSelect({
   fontThickness = "font-semibold",
   inputFontSize = "text-base py-2",
   labelFontSize = "text-sm",
+  isDisable = false,
 }) {
   const [touched, setTouched] = useState(false);
   const [open, setOpen] = useState(false);
@@ -67,13 +68,14 @@ export default function FloatingCreatableSelect({
         }}
         onFocus={() => setOpen(true)}
         onBlur={handleBlur}
-        className={`peer w-full mx-auto ${inputFontSize} ${border} mt-2 rounded-lg bg-transparent p-2 text-gray-900 placeholder-transparent focus:outline-none  ${
+        className={`peer w-full mx-auto ${inputFontSize} ${border} ${fontThickness} mt-2 rounded-lg bg-transparent p-2 text-gray-900 disabled:text-slate-400 placeholder-transparent focus:outline-none  ${
           isError
-            ? "border-red-500 focus:border-red-500"
-            : "border-gray-800 focus:border-blue-600"
+            ? "border-red-500 focus:border-red-500 disabled:border-slate-400"
+            : "border-gray-800 focus:border-blue-600 disabled:border-slate-400"
         }`}
         required
         autoComplete="off"
+        disabled={isDisable}
       />
       <label
         htmlFor={id}
@@ -117,7 +119,7 @@ export default function FloatingCreatableSelect({
             ))
           ) : (
             <li className="px-3 py-2 text-gray-500">
-              Click enter to add "<b>{filter}</b>" as a new category
+              Click enter to add "<b>{filter}</b>" as a new option
             </li>
           )}
         </ul>

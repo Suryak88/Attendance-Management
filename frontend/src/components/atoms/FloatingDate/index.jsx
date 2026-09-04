@@ -29,6 +29,8 @@ export default function FloatingDate({
   fontThickness = "font-semibold",
   inputFontSize = "text-base",
   dropdown,
+  isRequired = true,
+  isDisabled = false,
 }) {
   // const [displayValue, setDisplayValue] = useState("");
   // const [selectedDate, setSelectedDate] = useState(null);
@@ -264,15 +266,16 @@ export default function FloatingDate({
         onBlur={handleBlur}
         onClick={() => setIsActive(true)}
         onFocus={() => setIsActive(true)}
-        className={`peer w-full mx-auto ${inputFontSize} font-semibold ${border} mt-2 rounded-lg bg-transparent py-2 px-2 text-gray-900 placeholder-transparent focus:outline-none transition-all duration-200 ease-in-out ${
+        className={`peer w-full mx-auto ${inputFontSize} font-semibold ${border} mt-2 rounded-lg bg-transparent py-2 px-2 text-gray-900 disabled:text-slate-400 placeholder-transparent focus:outline-none transition-all duration-200 ease-in-out disabled:border-slate-400 ${
           isError
-            ? "border-red-500"
+            ? "border-red-500 disabled:border-slate-400"
             : isActive
-              ? "border-blue-600"
+              ? "border-blue-600 disabled:border-slate-400"
               : `${borderColorDefault}`
         }`}
-        required
+        required={isRequired}
         autoComplete="off"
+        disabled={isDisabled}
       />
 
       <button
@@ -286,7 +289,8 @@ export default function FloatingDate({
           setIsActive(false);
         }}
         className={`peer-focus:text-blue-600 absolute top-7 right-1 -translate-y-1/2 leading-none p-1 rounded-full hover:bg-slate-200 active:bg-slate-300 focus:outline-none focus:text-blue-600 focus:bg-slate-200 transition-all duration-200
-          `}
+          disabled:text-slate-400 disabled:active:bg-transparent`}
+        disabled={isDisabled}
       >
         <span className={`${isError ? "text-red-500" : "focus:text-blue-600"}`}>
           <Calendar className="size-4.5" />

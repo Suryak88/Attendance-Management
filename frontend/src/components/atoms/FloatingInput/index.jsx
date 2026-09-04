@@ -13,6 +13,7 @@ export default function FloatingInput({
   labelFontSize = "text-sm",
   isExternalError = false,
   isDisabled = false,
+  isRequired = true,
 }) {
   // const [value, setValue] = useState("");
   const [touched, setTouched] = useState(false);
@@ -37,7 +38,7 @@ export default function FloatingInput({
             ? "border-red-500 focus:border-red-500"
             : "border-gray-800 focus:border-blue-600 disabled:border-slate-400"
         }`}
-        required
+        required={isRequired}
         disabled={isDisabled}
       />
       <label
