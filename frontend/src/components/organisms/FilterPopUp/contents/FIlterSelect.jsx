@@ -6,10 +6,11 @@ export default function FilterSelect({
   options,
   value,
   handleValueChange,
+  withHr = true,
 }) {
   return (
     <>
-      <hr className="text-slate-500 shadow-md" />
+      {withHr ? <hr className="text-slate-500 shadow-md" /> : ""}
       <div className="">
         <h3 className="text-sm font-medium text-slate-700 -mb-1">{label}</h3>
         <FloatingSelect
