@@ -14,6 +14,8 @@ import overtimeApprovalRoutes from "./routes/overtimeApprovalRoutes.js";
 import attendanceReportRoutes from "./routes/attendanceReportRoutes.js";
 import leaveUsageRoutes from "./routes/leaveUsageRoutes.js";
 import updateDataRoutes from "./routes/updateDataRoutes.js";
+import employeeFormRoutes from "./routes/employeeFormRoutes.js";
+import employeeRoutes from "./routes/employeeRoutes.js";
 import cookieParser from "cookie-parser";
 import { startAttendanceCron } from "./jobs/attendanceCron.js";
 import { startOvertimeCron } from "./jobs/overtimeCron.js";
@@ -62,11 +64,13 @@ app.use("/api/overtime", overtimeRoutes);
 app.use("/api/overtimeApproval", overtimeApprovalRoutes);
 app.use("/api/leaveUsage", leaveUsageRoutes);
 app.use("/api/hadirr", updateDataRoutes);
+app.use("/api/employee", employeeRoutes);
+app.use("/api/employeeForm", employeeFormRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  startAttendanceCron();
+  // startAttendanceCron(); dimatikan dlu sementara auto closenya karena data2 belum semua rapih dan stabil
   startOvertimeCron();
 });
 

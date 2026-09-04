@@ -79,12 +79,18 @@ export const menu = [
     children: [
       {
         id: 51,
-        name: "Checking",
+        name: "Request",
         path: "/app/overtimeRequest",
         roles: ["STAFF", "SUPERVISOR", "MANAGER"],
       },
       {
         id: 52,
+        name: "Checking",
+        path: "/app/overtimeChecking",
+        roles: ["STAFF", "SUPERVISOR", "MANAGER"],
+      },
+      {
+        id: 53,
         name: "Approval",
         path: "/app/overtimeApproval",
         roles: ["SUPERVISOR", "MANAGER"],
@@ -102,6 +108,13 @@ export const menu = [
         name: "Leave Type",
         icon: "fact_check",
         path: "/app/m-leaveType",
+        roles: ["ADMIN"],
+      },
+      {
+        id: 62,
+        name: "Employee",
+        icon: "fact_check",
+        path: "/app/m-employee",
         roles: ["ADMIN"],
       },
     ],

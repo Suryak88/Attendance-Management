@@ -17,6 +17,9 @@ import OvertimeRequest from "./pages/OvertimeRequest";
 import LeaveUsage from "./pages/LeaveUsage";
 import UpdateData from "./pages/UpdateData";
 import { useEffect } from "react";
+import Employee from "./pages/Employee";
+import EmployeeForm from "./pages/EmployeeForm";
+import OvertimeChecking from "./pages/OvertimeChecking";
 
 export default function App() {
   useEffect(() => {
@@ -80,6 +83,7 @@ export default function App() {
               }
             />
             <Route path="overtimeRequest" element={<OvertimeRequest />} />
+            <Route path="overtimeChecking" element={<OvertimeChecking />} />
             <Route
               path="overtimeApproval"
               element={
@@ -93,6 +97,30 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["ADMIN"]}>
                   <LeaveType />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="m-employee"
+              element={
+                <ProtectedRoute allowedRoles={["ADMIN"]}>
+                  <Employee />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="m-employee/new"
+              element={
+                <ProtectedRoute allowedRoles={["ADMIN"]}>
+                  <EmployeeForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="m-employee/:regnum"
+              element={
+                <ProtectedRoute allowedRoles={["ADMIN"]}>
+                  <EmployeeForm />
                 </ProtectedRoute>
               }
             />
