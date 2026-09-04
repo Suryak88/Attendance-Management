@@ -114,6 +114,7 @@ export async function showOvertimeRequest(req, res) {
       LEFT JOIN m_jabatan e ON b.jabatan_id = e.id
       WHERE b.approver = ? 
       AND a.tgl BETWEEN ? AND ?
+      AND a.fl_hapus = 0
       AND a.keterangan IS NOT NULL     
       AND TRIM(a.keterangan) <> ''
       AND a.fl_approve <> 3`;
