@@ -6,6 +6,8 @@ const abbreviations = {
   ceo: "CEO",
   ar: "AR",
   ga: "GA",
+  po: "PO",
+  hr: "HR",
 };
 
 export function formatCapitalize(text) {
