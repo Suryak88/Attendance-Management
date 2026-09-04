@@ -311,7 +311,7 @@ export default function AttendanceCorrection() {
               </div>
             </div>
             <div
-              className={`flex transition-all duration-300 ${!attendanceImported ? "max-h-5 opacity-100 -translate-y-5" : "max-h-0 opacity-0 -translate-y-8"}`}
+              className={`flex mt-1.5 transition-all duration-300 ${!attendanceImported ? "max-h-5 opacity-100 -translate-y-5" : "max-h-0 opacity-0 -translate-y-8"}`}
             >
               <CheckBox
                 id={"izinTelat"}
