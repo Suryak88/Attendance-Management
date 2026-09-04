@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "sonner";
 
 const api = axios.create({
   baseURL: "http://localhost:5000/api",
@@ -105,6 +106,11 @@ api.interceptors.response.use(
             localStorage.removeItem("token");
 
             delete api.defaults.headers.common.Authorization;
+
+            sessionStorage.setItem(
+              "SESSION_EXPIRED",
+              "Your session has expired. Please log in again to continue.",
+            );
 
             window.location.replace("/");
           }

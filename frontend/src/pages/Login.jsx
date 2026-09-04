@@ -10,6 +10,7 @@ import Button from "../components/atoms/Button";
 import api from "../utils/axiosInstance";
 import logo from "../assets/logo.png";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -17,6 +18,15 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
   const [fail, setFail] = useState(false);
+
+  useEffect(() => {
+    const message = sessionStorage.getItem("SESSION_EXPIRED");
+
+    if (message) {
+      toast.warning(message);
+      sessionStorage.removeItem("SESSION_EXPIRED");
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
