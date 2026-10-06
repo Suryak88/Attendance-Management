@@ -3,6 +3,7 @@ import { buildLeaveDates } from "../utils/buildLeaveDates.js";
 import { formatDateIndo, getDatesBetween } from "../utils/date.js";
 import { validateRangeNotClosed } from "../utils/validateNotClosed.js";
 import { authorityChecking } from "./authorityService.js";
+import { createNotification } from "./Notification/notificationService.js";
 
 export async function approveLeave(conn, leave, loginRegnum) {
   await authorityChecking(conn, leave.regnum, loginRegnum);
@@ -115,4 +116,16 @@ export async function approveLeave(conn, leave, loginRegnum) {
     `UPDATE t_leave set fl_approve = 1, approved_by = ?, approved_log = NOW() WHERE id = ?`,
     [loginRegnum, leave.id],
   );
+
+  await createNotification(conn, {
+    regnum: leave.regnum,
+    type: "LEAVE_APPROVED",
+    data: {
+      leaveName: leaveTypeRow.nama,
+      tgl1: leave.tgl1,
+      tgl2: leave.tgl2,
+    },
+    reference_type: "LEAVE",
+    reference_id: leave.id,
+  });
 }

@@ -3,6 +3,7 @@ import { validateRangeNotClosed } from "../utils/validateNotClosed.js";
 import { BusinessError } from "../errors/BusinessError.js";
 import { validateAttendanceImported } from "./validateAttendanceImported.js";
 import { getLastAttendanceImported } from "./getLastAttendanceImported.js";
+import { createNotification } from "./Notification/notificationService.js";
 
 export async function approveCorrection(
   conn,
@@ -101,6 +102,17 @@ export async function approveCorrection(
     request.tgl,
     request.regnum,
   ]);
+
+  await createNotification(conn, {
+    regnum: request.regnum,
+    type: "CORRECTION_APPROVED",
+    data: {
+      tgl: request.tgl,
+      correction_type: request.correction_type,
+    },
+    reference_type: "CORRECTION",
+    reference_id: request.id,
+  });
 }
 
 async function attendanceChecking(conn, regnum, date, checkCode) {
