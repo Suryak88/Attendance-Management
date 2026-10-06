@@ -20,10 +20,9 @@ import { toast } from "sonner";
 import api from "../../utils/axiosInstance";
 import HistoryBar from "../../components/organisms/HistoryBar";
 import { approvalStatusConfig } from "../../utils/statusColor";
-import { setDate } from "date-fns";
 import FloatingTime from "../../components/atoms/FloatingTime";
 import FloatingInput from "../../components/atoms/FloatingInput";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 export default function OvertimeRequest() {
   const { user } = useContext(AuthContext);
@@ -39,10 +38,20 @@ export default function OvertimeRequest() {
   const skeletonRows = Array.from({ length: 3 });
   const submitLoader = useDelayedLoading();
   const historyLoader = useDelayedLoading();
+  const modalLoader = useDelayedLoading();
   const { open, mode, close, showSuccess } = useModal(resetForm);
   const [ovtHistory, setOvtHistory] = useState([]);
   const descriptionRef = useRef(null);
   const { state } = useLocation();
+  const [searchParams] = useSearchParams();
+  const requestId = searchParams.get("id");
+  const [isFlashing, setIsFlashing] = useState(true);
+  const [targetedOvertime, setTargetedOvertime] = useState(null);
+  const displayedHistory =
+    targetedOvertime &&
+    !ovtHistory.some((item) => item.id === targetedOvertime.id)
+      ? [...ovtHistory, targetedOvertime]
+      : ovtHistory;
 
   useEffect(() => {
     if (!user) return;
@@ -60,6 +69,46 @@ export default function OvertimeRequest() {
     setField("overtimeDate", date);
     setDateDisplay(formatDateFromPicker(date));
   }, [state]);
+
+  useEffect(() => {
+    if (!requestId) return;
+
+    const element = document.getElementById(`overtime-${requestId}`);
+
+    if (!element) return;
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+
+    setIsFlashing(true);
+
+    const timer = setTimeout(() => {
+      setIsFlashing(false);
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, [requestId, ovtHistory, targetedOvertime]);
+
+  useEffect(() => {
+    if (!requestId) {
+      setTargetedOvertime(null);
+      return;
+    }
+
+    const existing = ovtHistory.find(
+      (overtime) => overtime.id === Number(requestId),
+    );
+
+    if (existing) {
+      setTargetedOvertime(null);
+      return;
+    }
+
+    fetchSpecificRequest(requestId);
+  }, [requestId, ovtHistory]);
 
   function setField(field, value) {
     setForm((prev) => ({
@@ -111,7 +160,7 @@ export default function OvertimeRequest() {
     await api
       .get("/overtime/", {
         params: {
-          limit: 10,
+          limit: 20,
         },
       })
       .then((res) => {
@@ -132,6 +181,19 @@ export default function OvertimeRequest() {
     setField("clockIn", data?.masuk ?? null);
     setField("clockOut", data?.pulang ?? null);
     setField("duration", data?.real_hours ?? null);
+  }
+
+  async function fetchSpecificRequest(id) {
+    try {
+      modalLoader.startLoading();
+      const res = await api.get(`/overtime/${id}/request`);
+
+      setTargetedOvertime(res.data);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to fetch request");
+    } finally {
+      modalLoader.stopLoading();
+    }
   }
 
   return (
@@ -277,10 +339,11 @@ export default function OvertimeRequest() {
                   </div>
                 </div>
               ))
-            : ovtHistory.map((item) => (
+            : displayedHistory.map((item) => (
                 <div
                   key={item.id}
-                  className="flex flex-col w-55 lg:w-65 h-fit rounded-xl p-2 outline outline-slate-400 shadow-sm"
+                  id={`overtime-${item.id}`}
+                  className={`flex flex-col w-55 lg:w-65 shrink-0 h-fit rounded-xl p-2 outline outline-slate-400 shadow-sm transition-all duration-500 ease-in-out ${Number(requestId) === item.id ? "ring-3 ring-sky-200" : ""} ${Number(requestId) === item.id && isFlashing ? "bg-sky-50 scale-[1.01] shadow-md ring-offset-1 ring-offset-sky-400" : "scale-100"}`}
                 >
                   <div className="flex py-1 justify-between items-center">
                     <div className="">Lembur</div>
