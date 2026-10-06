@@ -1,12 +1,51 @@
 import { useState } from "react";
 import Header from "../../organisms/Header";
 import Sidebar from "../../organisms/Sidebar";
-import Dashboard from "../../../pages/Dashboard";
 import { Outlet } from "react-router-dom";
 import { ChevronsLeft } from "lucide-react";
+import { useContext } from "react";
+import { AuthContext } from "../../../context/AuthContext";
+import { useNotificationStore } from "../../../store/useNotificationStore";
+import { useEffect } from "react";
 
 export default function MainLayout() {
   const [isExpand, setIsExpand] = useState(false);
+  const { user } = useContext(AuthContext);
+  const getNotif = useNotificationStore((state) => state.getNotif);
+
+  useEffect(() => {
+    if (!user.regnum) return;
+
+    async function refreshNotif() {
+      try {
+        await getNotif();
+      } catch (error) {
+        console.error("Failed to fetch notif: ", error);
+      }
+    }
+
+    refreshNotif();
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshNotif();
+      }
+    }, 60_000);
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshNotif();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user?.regnum, getNotif]);
 
   function handleExpand() {
     setIsExpand(!isExpand);
