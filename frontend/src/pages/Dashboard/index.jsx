@@ -5,7 +5,6 @@ import { AuthContext } from "../../context/AuthContext";
 import {
   formatDateIndo,
   formatLocalDate,
-  formatMySQLTime,
   minuteConvert,
 } from "../../utils/Date";
 import { toast } from "sonner";
@@ -303,7 +302,7 @@ export default function Dashboard() {
                       key={o.id}
                       className="flex flex-col flex-1 p-2 gap-3 shadow-sm bg-slate-100 outline-1 outline-slate-300 rounded-xl"
                     >
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <div className="flex gap-1">
                           {/* <span
                             className={`material-symbols-outlined text-xl! leading-none`}
@@ -321,7 +320,7 @@ export default function Dashboard() {
                         </div>
 
                         <div
-                          className={`w-fit px-1 rounded-full outline-1 text-xs h-fit mt-0.5 ${overtimeStatusConfig(o?.overtime_status)}`}
+                          className={`w-fit px-1 rounded-full outline-1 text-xs text-center h-fit mt-0.5 ${overtimeStatusConfig(o?.overtime_status)}`}
                         >
                           <p>{o?.overtime_status_formatted}</p>
                         </div>

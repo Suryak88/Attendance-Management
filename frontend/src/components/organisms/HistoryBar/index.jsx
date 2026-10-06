@@ -68,7 +68,7 @@ export default function HistoryBar({ children }) {
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex flex-1 overflow-x-auto py-1 px-2 scroll-smooth"
+          className="flex flex-1 overflow-x-auto p-2 scroll-smooth"
         >
           {children}
         </div>

@@ -79,7 +79,7 @@ export default function PopUpMenu({
     <div
       ref={ref}
       onClick={(e) => e.stopPropagation()}
-      className={`fixed ${zIndex} p-1 bg-slate-100 rounded-xl shadow-lg ${popupWidth} outline-1 outline-slate-400 transition-all duration-200 ease-in-out origin-top-right ${
+      className={`fixed ${zIndex} flex flex-col p-1 bg-slate-100 rounded-xl shadow-lg ${popupWidth} outline-1 outline-slate-400 transition-all duration-200 ease-in-out origin-top-right ${
         open
           ? "opacity-100 scale-100"
           : "opacity-0 scale-95 pointer-events-none"

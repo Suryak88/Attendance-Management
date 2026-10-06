@@ -69,44 +69,46 @@ export default function LoginPage() {
         <div className="text-xl font-bold text-slate-800 mx-auto w-3/4 md:w-2/3 lg:w-1/2 h-auto md:h-128 lg:h-auto md:bg-slate-200 flex justify-center items-center rounded-xl my-24 lg:my-8 lg:mr-8 lg:shadow-md">
           <div className="w-full lg:w-fit ">
             <ModalPanel title={"Welcome back!"}>
-              <FormContent onSubmit={handleLogin} btnLabel={"Log In"}>
-                <div className="w-full md:w-1/2 lg:w-80">
-                  <div className="flex flex-col gap-4">
-                    <FloatingInput
-                      id="username"
-                      value={username}
-                      onValueChange={setUsername}
-                      message={"Please enter your username"}
-                      border="border-2"
-                      fontThickness="font-medium"
-                    />
-                    <FloatingInput
-                      id="password"
-                      type="password"
-                      value={password}
-                      onValueChange={setPassword}
-                      message={"Please enter your password"}
-                      border="border-2"
-                      fontThickness="font-medium"
-                      autoComplete="current-password"
-                    />
-                  </div>
-
-                  <div className="flex flex-col mt-4 md:mt-2 lg:mt-4">
-                    <div
-                      className={`font-medium text-red-500 text-base flex justify-center transition-transform duration-500 ease-in-out animate-bounce ${fail ? "opacity-100 -translate-y-1" : "opacity-0 translate-y-4"}`}
-                    >
-                      <p className="text-center">
-                        Username or Password is invalid!
-                      </p>
+              <div className="mt-2 lg:mt-5 w-full">
+                <FormContent onSubmit={handleLogin} btnLabel={"Log In"}>
+                  <div className="w-full md:w-1/2 lg:w-80">
+                    <div className="flex flex-col gap-4">
+                      <FloatingInput
+                        id="username"
+                        value={username}
+                        onValueChange={setUsername}
+                        message={"Please enter your username"}
+                        border="border-2"
+                        fontThickness="font-medium"
+                      />
+                      <FloatingInput
+                        id="password"
+                        type="password"
+                        value={password}
+                        onValueChange={setPassword}
+                        message={"Please enter your password"}
+                        border="border-2"
+                        fontThickness="font-medium"
+                        autoComplete="current-password"
+                      />
                     </div>
 
-                    <div className="flex justify-center mt-1 mx-auto sm:w-1/3 md:w-full">
-                      <Button btnLabel={"Log In"} />
+                    <div className="flex flex-col mt-4 md:mt-2 lg:mt-4">
+                      <div
+                        className={`font-medium text-red-500 text-base flex justify-center transition-transform duration-500 ease-in-out animate-bounce ${fail ? "opacity-100 -translate-y-1" : "opacity-0 translate-y-4"}`}
+                      >
+                        <p className="text-center">
+                          Username or Password is invalid!
+                        </p>
+                      </div>
+
+                      <div className="flex justify-center mt-1 mx-auto sm:w-1/3 md:w-full">
+                        <Button btnLabel={"Log In"} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </FormContent>
+                </FormContent>
+              </div>
             </ModalPanel>
           </div>
         </div>
