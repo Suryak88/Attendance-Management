@@ -4,6 +4,7 @@ import {
   approveLeaveReq,
   approveRevision,
   bulkLeaveApprove,
+  fetchSpecificLeaveRequest,
   rejectLeaveReq,
   rejectRevision,
   revokeApproval,
@@ -49,6 +50,12 @@ router.put(
   authMiddleware,
   authorizeRole("SUPERVISOR"),
   bulkLeaveApprove,
+);
+router.get(
+  "/:id/request",
+  authMiddleware,
+  authorizeRole("SUPERVISOR"),
+  fetchSpecificLeaveRequest,
 );
 
 export default router;

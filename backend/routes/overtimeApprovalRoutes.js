@@ -3,6 +3,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import {
   approveOvertimeReq,
   bulkApproveOvertime,
+  fetchSpecificOvertimeRequest,
   rejectOvertimeReq,
   showOvertimeRequest,
 } from "../controllers/tOvertimeController.js";
@@ -33,6 +34,12 @@ router.put(
   authMiddleware,
   authorizeRole("SUPERVISOR"),
   bulkApproveOvertime,
+);
+router.get(
+  "/:id/request",
+  authMiddleware,
+  authorizeRole("SUPERVISOR"),
+  fetchSpecificOvertimeRequest,
 );
 
 export default router;

@@ -3,6 +3,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import {
   approveCorrectionReq,
   bulkCorrectionApprove,
+  fetchSpecificCorrectionRequest,
   rejectCorrectionReq,
   showCorrectionRequest,
 } from "../controllers/tCorrectionController.js";
@@ -33,6 +34,12 @@ router.put(
   authMiddleware,
   authorizeRole("SUPERVISOR"),
   bulkCorrectionApprove,
+);
+router.get(
+  "/:id/request",
+  authMiddleware,
+  authorizeRole("SUPERVISOR"),
+  fetchSpecificCorrectionRequest,
 );
 
 export default router;

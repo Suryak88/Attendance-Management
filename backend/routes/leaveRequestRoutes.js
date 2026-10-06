@@ -3,6 +3,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import {
   addLeaveRequest,
   cancelRequest,
+  cancelReviseRequest,
   generatePDF,
   getMedicalCertificate,
   reviseRequest,
@@ -27,5 +28,6 @@ router.put("/cancel/:id", authMiddleware, cancelRequest);
 router.put("/revise/:id", authMiddleware, reviseRequest);
 router.post("/generatePDF/:id", authMiddleware, generatePDF);
 router.get("/medicalCertif/:id", authMiddleware, getMedicalCertificate);
+router.put("/cancel/rev/:id", authMiddleware, cancelReviseRequest);
 
 export default router;
