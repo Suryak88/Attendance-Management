@@ -24,7 +24,7 @@ import {
   countWorkingDays,
 } from "../../utils/Date";
 import { DayPicker, getDefaultClassNames } from "react-day-picker";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { approvalStatusConfig } from "../../utils/statusColor";
 import FormDelete from "../../components/organisms/Modal/contents/FormDelete";
 import { toast } from "sonner";
@@ -38,11 +38,13 @@ import BtnLoading from "../../components/atoms/BtnLoading";
 import { extractErrorMessage } from "../../utils/extractErrorBlob";
 import { ArrowRight, File, Info, X } from "lucide-react";
 import FloatingUpload from "../../components/atoms/FloatingUpload";
-import { FloatingPortal } from "@floating-ui/react";
+import { FloatingPortal, inline } from "@floating-ui/react";
 import AttachmentPreview from "../../components/organisms/AttachmentPreview";
 
 export default function LeaveRequest() {
   const { state } = useLocation();
+  const [searchParams] = useSearchParams();
+  const requestId = searchParams.get("id");
   const [startDisplay, setStartDisplay] = useState("");
   const [endDisplay, setEndDisplay] = useState("");
   const [form, setForm] = useState({
@@ -138,6 +140,8 @@ export default function LeaveRequest() {
   const [previewImage, setPreviewImage] = useState(null);
   const [previewFiles, setPreviewFiles] = useState(null);
   const [openPreview, setOpenPreview] = useState(false);
+  const [isFlashing, setIsFlashing] = useState(true);
+  const [targetedLeave, setTargetedLeave] = useState(null);
 
   useEffect(() => {
     if (!state) return;
@@ -168,6 +172,28 @@ export default function LeaveRequest() {
       fetchLeaveHistory();
     }
   }, [user, holidayLoading]);
+
+  useEffect(() => {
+    if (!requestId) return;
+
+    const element = document.getElementById(`leave-${requestId}`);
+
+    if (!element) return;
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+
+    setIsFlashing(true);
+
+    const timer = setTimeout(() => {
+      setIsFlashing(false);
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, [requestId, reqHistory, targetedLeave]);
 
   async function fetchLeaveQuota() {
     const now = new Date(); //SEMENTARA SAMPAI CUTI JAN - MAR SELESAI DIINPUT
@@ -288,6 +314,16 @@ export default function LeaveRequest() {
     }
   }
 
+  async function handleCancelRevise() {
+    try {
+      await api.put(`/leaveRequest/cancel/rev/${selectedReq.revisi_id}`);
+      fetchLeaveHistory();
+      showSuccess();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Gagal membatalkan revisi");
+    }
+  }
+
   const totalDays = useMemo(() => {
     if (!form.startDate || !form.endDate) return 0;
     if (isEndDateInvalid) return 0;
@@ -377,7 +413,8 @@ export default function LeaveRequest() {
       selectedReq?.selisihWaktu < 90 &&
       selectedReq?.duration > 1 &&
       actionMode !== "endLeaveEarly" &&
-      selectedReq?.revision_status !== 1
+      selectedReq?.revision_status !== 1 &&
+      selectedReq?.revision_status !== 0
     );
   }
 
@@ -722,8 +759,9 @@ export default function LeaveRequest() {
                 ))
               : reqHistory.map((item, index) => (
                   <div
-                    className="flex flex-col w-55 lg:w-65 h-fit rounded-xl p-2 outline outline-slate-400 shadow-sm"
                     key={index}
+                    id={`leave-${item.id}`}
+                    className={`flex flex-col w-55 lg:w-65 shrink-0 h-fit rounded-xl p-2 outline outline-slate-400 shadow-sm transition-all duration-500 ease-in-out ${item.id === Number(requestId) ? "ring-3 ring-sky-200" : ""} ${item.id === Number(requestId) && isFlashing ? "bg-sky-50 scale-[1.01] shadow-md ring-offset-1 ring-offset-sky-400" : "scale-100"}`}
                   >
                     <div className="flex py-1 justify-between items-center">
                       <div>{item?.leavename}</div>
@@ -993,7 +1031,7 @@ export default function LeaveRequest() {
                     </p>
                   </div>
                 )}
-                {selectedReq?.revision_status === 1 && (
+                {selectedReq?.revision_status !== null && (
                   <>
                     <hr className="text-slate-400 my-2 shadow-sm" />
                     <div className="flex w-full justify-between text-sm">
@@ -1146,6 +1184,15 @@ export default function LeaveRequest() {
                       btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60!"
                       textSize="text-sm shadow-sm!"
                       handleClick={() => setActionMode("endLeaveEarly")}
+                    />
+                  )}
+                  {selectedReq?.revision_status === 0 && (
+                    <Button
+                      btnLabel="Cancel Revise"
+                      btnWidth="py-1"
+                      btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60!"
+                      textSize="text-sm shadow-sm!"
+                      handleClick={handleCancelRevise}
                     />
                   )}
                   {selectedReq?.fl_approve === 1 &&
