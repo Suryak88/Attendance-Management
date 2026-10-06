@@ -16,9 +16,11 @@ import leaveUsageRoutes from "./routes/leaveUsageRoutes.js";
 import updateDataRoutes from "./routes/updateDataRoutes.js";
 import employeeFormRoutes from "./routes/employeeFormRoutes.js";
 import employeeRoutes from "./routes/employeeRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 import cookieParser from "cookie-parser";
 import { startAttendanceCron } from "./jobs/attendanceCron.js";
 import { startOvertimeCron } from "./jobs/overtimeCron.js";
+import { deleteNotifCron } from "./jobs/deleteNotifCron.js";
 
 dotenv.config();
 
@@ -66,12 +68,14 @@ app.use("/api/leaveUsage", leaveUsageRoutes);
 app.use("/api/hadirr", updateDataRoutes);
 app.use("/api/employee", employeeRoutes);
 app.use("/api/employeeForm", employeeFormRoutes);
+app.use("/api/notification", notificationRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   // startAttendanceCron(); dimatikan dlu sementara auto closenya karena data2 belum semua rapih dan stabil
   startOvertimeCron();
+  deleteNotifCron();
 });
 
 //SETUP SERVER DASAR (SERVER.JS)
