@@ -88,6 +88,41 @@ function formatDateIndo(date, withDay = "") {
   );
 }
 
+function formatDateRangeIndo(start, end) {
+  if (!start || !end) return null;
+
+  const d1 = new Date(start);
+  const d2 = new Date(end);
+
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) {
+    return null;
+  }
+
+  if (d1.toDateString() === d2.toDateString()) {
+    return formatDateIndo(d1);
+  }
+
+  const sameMonth =
+    d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+
+  const sameYear = d1.getFullYear() === d2.getFullYear();
+
+  const startDay = String(d1.getDate()).padStart(2, "0");
+
+  if (sameMonth) {
+    return `${startDay} - ${formatDateIndo(d2)}`;
+  }
+
+  if (sameYear) {
+    return `${d1.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+    })} - ${formatDateIndo(d2)}`;
+  }
+
+  return `${formatDateIndo(d1)} - ${formatDateIndo(d2)}`;
+}
+
 function formatLocalDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -225,6 +260,7 @@ export {
   calculateWorkDuration,
   mergeTimeToDate,
   formatDateIndo,
+  formatDateRangeIndo,
   formatLocalDate,
   toDateOnly,
   calculateLeaveDaysExcludeSunday,
