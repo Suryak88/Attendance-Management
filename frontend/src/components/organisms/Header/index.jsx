@@ -2,11 +2,16 @@ import { useContext } from "react";
 import { useEffect } from "react";
 import { useRef, useState } from "react";
 import { AuthContext } from "../../../context/AuthContext";
-import { CircleUserRound, Menu, Search } from "lucide-react";
+import {
+  Bell,
+  CheckCheck,
+  CircleUserRound,
+  Menu,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import logo from "../../../assets/logo.png";
 import PopUpMenu from "../PopUpMenu";
-import TableChild from "../../atoms/TableChild";
-import SidebarButton from "../../atoms/SidebarButton";
 import Button from "../../atoms/Button";
 import { LogOut } from "lucide-react";
 import api from "../../../utils/axiosInstance";
@@ -17,6 +22,11 @@ import ModalPanel from "../Modal/modalPanel";
 import FloatingInput from "../../atoms/FloatingInput";
 import { toast } from "sonner";
 import FormSuccess from "../Modal/contents/FormSuccess";
+import { formatNotif } from "../../../utils/notificationConfig";
+import { formatTimeAgo } from "../../../utils/Date";
+import { useNotificationStore } from "../../../store/useNotificationStore";
+import { useNotificationClick } from "../../../hooks/useNotificationClick";
+import { useDelayedLoading } from "../../../hooks/useDelayedLoading";
 
 export default function Header({ isExpand, handleExpand }) {
   const { user, logout } = useContext(AuthContext);
@@ -25,8 +35,9 @@ export default function Header({ isExpand, handleExpand }) {
   const inputRef = useRef(null);
   const [popup, setPopup] = useState(null);
   const [popupOpen, setPopupOpen] = useState(false);
+  const [notifPopup, setNotifPopup] = useState(null);
+  const [notifPopupOpen, setNotifPopupOpen] = useState(false);
   const navigate = useNavigate();
-
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,10 +45,29 @@ export default function Header({ isExpand, handleExpand }) {
     useModal(resetModal);
   const isDifferentPassword =
     confirmPassword !== "" && newPassword !== confirmPassword;
+  const notifications = useNotificationStore((state) => state.notifications);
+  const formattedNotifications = formatNotif(notifications.data);
+  const getNotification = useNotificationStore((state) => state.getNotif);
+  const markAllAsReadNotif = useNotificationStore(
+    (state) => state.markAllAsRead,
+  );
+  const [activeTab, setActiveTab] = useState("all");
+  const displayedNotifications =
+    activeTab === "unread"
+      ? formattedNotifications.filter((data) => data.is_read === 0).slice(0, 10)
+      : formattedNotifications.slice(0, 10);
+  const notifListRef = useRef(null);
+  const { handleClickNotif } = useNotificationClick();
+  const getNotifLoader = useDelayedLoading();
+  const markAllAsReadLoader = useDelayedLoading();
 
   function handleClear() {
     setSearch("");
   }
+
+  useEffect(() => {
+    getNotif();
+  }, [user]);
 
   // useEffect(() => {
   //   setGreeting(getGreeting());
@@ -51,6 +81,19 @@ export default function Header({ isExpand, handleExpand }) {
     if (hour >= 11 && hour < 15) return "Good Afternoon";
     if (hour >= 15 && hour < 19) return "Good Evening";
     return "Good Night";
+  }
+
+  async function getNotif() {
+    try {
+      getNotifLoader.startLoading();
+      await getNotification();
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to fetch notification",
+      );
+    } finally {
+      getNotifLoader.stopLoading();
+    }
   }
 
   function resetModal() {
@@ -86,6 +129,34 @@ export default function Header({ isExpand, handleExpand }) {
     setPopupOpen(false);
     setTimeout(() => {
       setPopup(null);
+    }, 200);
+  }
+
+  async function handleNotifPopup(e) {
+    e.stopPropagation();
+
+    if (notifPopup) {
+      handleCloseNotifPopup();
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    await getNotif();
+    setNotifPopup({
+      rect,
+    });
+
+    setNotifPopupOpen(false);
+
+    requestAnimationFrame(() => {
+      setNotifPopupOpen(true);
+    });
+  }
+
+  function handleCloseNotifPopup() {
+    setNotifPopupOpen(false);
+    setTimeout(() => {
+      setNotifPopup(null);
     }, 200);
   }
 
@@ -130,6 +201,26 @@ export default function Header({ isExpand, handleExpand }) {
       toast.error(
         error?.response?.data?.message || "Failed to change password",
       );
+    }
+  }
+
+  function handleChangeTab(tab) {
+    setActiveTab(tab);
+
+    notifListRef.current?.scrollTo({
+      top: 0,
+      behavior: "instant",
+    });
+  }
+
+  async function markAllAsRead() {
+    try {
+      markAllAsReadLoader.startLoading();
+      await markAllAsReadNotif();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to mark as read");
+    } finally {
+      markAllAsReadLoader.stopLoading();
     }
   }
 
@@ -193,23 +284,35 @@ export default function Header({ isExpand, handleExpand }) {
             {/* <div className="flex text-right md:text-center text-xs md:text-sm lg:text-base bg-indigo-200">
               {getGreeting()}, {user?.username}!
             </div> */}
-            <div
-              className="flex gap-2 md:gap-3 cursor-pointer"
-              onClick={handleDetailPopup}
-            >
-              <div className="flex items-center text-right md:text-center text-xs md:text-sm lg:text-base">
-                {user?.username}
+            <div className="flex gap-2 md:gap-3 cursor-pointer items-center">
+              <div
+                className={`flex items-center p-1 group hover:bg-slate-200 rounded-full transition-all ${notifPopupOpen ? "bg-slate-200" : ""} relative`}
+                onClick={handleNotifPopup}
+              >
+                <Bell className="size-4 lg:size-5 text-slate-500 group-hover:text-slate-700 transition-all" />
+                <span
+                  className={`flex items-center justify-center rounded-full transition-all bg-red-400 group-hover:bg-red-500 w-[13px] h-[13px] lg:w-[15px] lg:h-[15px] lg:text-[10px] absolute top-0 right-0 text-[8px] text-white select-none
+                  ${notifications.unread > 0 ? "opacity-100" : "opacity-0"}`}
+                >
+                  {notifications.unread > 9 ? "9+" : notifications.unread}
+                </span>
               </div>
-              <div className="flex justify-center items-center">
+              {/* <div className="flex items-center text-right md:text-center text-xs md:text-sm lg:text-base">
+                {user?.username}
+              </div> */}
+              <div
+                className="flex justify-center items-center"
+                onClick={handleDetailPopup}
+              >
                 {user?.photo ? (
                   <img
                     src={logo}
                     alt="Profile"
-                    className="w-7 h-7 object-cover rounded-full outline-1 outline-slate-400 select-none"
+                    className="w-7 h-7 lg:w-8 lg:h-8 object-cover rounded-full outline-1 outline-slate-400 select-none"
                   />
-                ) : user?.username ? (
-                  <span className="flex items-center justify-center rounded-full outline-1 outline-slate-400 text-slate-500 font-normal text-lg shadow-sm bg-slate-200 w-7 h-7">
-                    {user.username.charAt(0).toUpperCase()}
+                ) : user?.fullname ? (
+                  <span className="flex items-center justify-center rounded-full outline-1 outline-slate-400 text-slate-500 font-normal text-lg shadow-sm bg-slate-200 w-7 h-7 lg:w-8 lg:h-8 hover:outline-slate-600 hover:text-slate-600 transition-all select-none">
+                    {user?.fullname.charAt(0).toUpperCase()}
                   </span>
                 ) : (
                   <CircleUserRound
@@ -242,7 +345,7 @@ export default function Header({ isExpand, handleExpand }) {
             onClose={handleClosePopup}
             popupWidth="w-50 md:w-60"
           >
-            <div className="flex flex-1 flex-col gap-2 p-1 m-1 text-xs ">
+            <div className="flex flex-1 flex-col gap-2 p-1 m-1 text-xs">
               <div className="flex shrink-0 w-full justify-start items-center gap-3">
                 {user?.photo ? (
                   <img
@@ -250,9 +353,9 @@ export default function Header({ isExpand, handleExpand }) {
                     alt="Profile"
                     className="w-10 h-10 object-cover rounded-full outline-1 outline-slate-400 select-none"
                   />
-                ) : user?.username ? (
+                ) : user?.fullname ? (
                   <span className="flex shrink-0 items-center justify-center rounded-full outline-1 outline-slate-400 text-slate-500 font-normal text-lg shadow-sm bg-slate-200 w-10 h-10">
-                    {user.username.charAt(0).toUpperCase()}
+                    {user?.fullname.charAt(0).toUpperCase()}
                   </span>
                 ) : (
                   <CircleUserRound
@@ -287,6 +390,154 @@ export default function Header({ isExpand, handleExpand }) {
                   textSize="text-sm font-normal! shadow-none! hover:shadow-sm!"
                   handleClick={handleLogout}
                 />
+              </div>
+            </div>
+          </PopUpMenu>
+        )}
+
+        {notifPopup && (
+          <PopUpMenu
+            position={notifPopup.rect}
+            open={notifPopupOpen}
+            onClose={handleCloseNotifPopup}
+            popupWidth="w-2xs md:w-xs max-h-[70dvh]"
+          >
+            <div className="flex flex-1 flex-col p-1 m-1 gap-2 min-h-0">
+              <div className="flex justify-between items-center shrink-0">
+                <h3 className="text-slate-600 font-medium">Notifikasi</h3>
+                <span title="Refresh Notification" onClick={getNotif}>
+                  <RefreshCw
+                    className={`size-4 text-slate-500 cursor-pointer hover:rotate-180 transition-all duration-400 ${getNotifLoader.loading ? "animate-spin" : ""}`}
+                  />
+                </span>
+              </div>
+              <div className="flex rounded-xl bg-slate-200 p-1 gap-1 shrink-0 relative">
+                <div
+                  className={`absolute top-1 bottom-1 left-1 rounded-lg bg-slate-100 w-[calc((100%-0.5rem)/2)] shadow-md transition-transform duration-300 ease-in-out ${activeTab === "unread" ? "translate-x-full" : "translate-0"}`}
+                />
+                <button
+                  className={`z-10 flex-1 cursor-pointer rounded-lg p-1 text-sm  hover:text-black transition-all ${activeTab === "all" ? "text-black" : "text-slate-700"}`}
+                  onClick={() => handleChangeTab("all")}
+                >
+                  Semua
+                </button>
+                <button
+                  className={`z-10 flex flex-1 items-center justify-center gap-1 cursor-pointer rounded-lg p-1 text-sm hover:text-black transition-all ${activeTab === "unread" ? "text-black" : "text-slate-700"}`}
+                  onClick={() => handleChangeTab("unread")}
+                >
+                  Belum Dibaca
+                  <span
+                    className={`bg-slate-300 rounded-lg px-1.5 text-xs transition-all ${notifications.unread > 0 ? "opacity-100" : "opacity-0 hidden"}`}
+                  >
+                    {notifications.unread}
+                  </span>
+                </button>
+              </div>
+
+              <div
+                ref={notifListRef}
+                className="flex flex-col flex-1 gap-1 min-h-0 overflow-y-auto"
+              >
+                {displayedNotifications.length === 0 &&
+                  !getNotifLoader.loading && (
+                    <div className="flex min-h-15 justify-center items-center">
+                      <h3 className="text-slate-700 font-medium text-sm">
+                        Tidak ada notifikasi
+                      </h3>
+                    </div>
+                  )}
+                {getNotifLoader.loading ? (
+                  <div
+                    className={`flex rounded-xl transition-all text-transparent`}
+                  >
+                    <div className="flex justify-center p-1 shrink-0">
+                      <div
+                        className={`skeleton size-7 shrink-0 mt-1 rounded-full bg-slate-200 select-none`}
+                      />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-0.5 p-1">
+                      <div className="flex items-start gap-0.5 justify-between">
+                        <div className="skeleton flex items-center gap-1 rounded-lg bg-slate-200">
+                          <h3 className="text-sm font-medium">Loading...</h3>
+                        </div>
+                        <div className="skeleton pt-0.5 rounded-lg bg-slate-200">
+                          <p className="text-[10px] text-right text-nowrap">
+                            loading
+                          </p>
+                        </div>
+                      </div>
+                      <p className="skeleton bg-slate-200 rounded-lg text-xs ">
+                        Loading
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {displayedNotifications.map((notif) => {
+                      const Icon = notif?.icon;
+                      return (
+                        <div
+                          key={`notif-${notif?.id}`}
+                          className={`flex rounded-xl cursor-pointer ${notif?.is_read ? "" : "bg-sky-100"} hover:bg-blue-100 transition-all`}
+                          onClick={() =>
+                            handleClickNotif(notif, handleCloseNotifPopup)
+                          }
+                        >
+                          <div className="flex justify-center p-1 shrink-0">
+                            <Icon
+                              className={`size-6 shrink-0 mt-1 ${notif?.styling} `}
+                              strokeWidth={"1.5px"}
+                            />
+                          </div>
+                          <div className="flex flex-col p-1">
+                            <div className="flex items-start gap-0.5 justify-between">
+                              <div className="flex items-center gap-1">
+                                {notif?.is_read === 0 && (
+                                  <span className="size-1.5 shrink-0 rounded-full bg-sky-300 select-none" />
+                                )}
+                                <h3 className="text-sm font-medium text-slate-700">
+                                  {notif?.title}
+                                </h3>
+                              </div>
+                              <div className="pt-0.5">
+                                <p className="text-[10px] text-right text-nowrap text-slate-500">
+                                  {formatTimeAgo(notif?.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-600">
+                              {notif?.message}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-between text-xs shrink-0 px-2">
+                <button
+                  className="flex justify-center items-center gap-0.5 text-slate-700  hover:text-black hover:underline cursor-pointer transition-all disabled:text-slate-500 disabled:hover:no-underline"
+                  onClick={markAllAsRead}
+                  disabled={
+                    notifications.unread === 0 || markAllAsReadLoader.loading
+                  }
+                >
+                  <span>
+                    <CheckCheck className="size-3.5" />
+                  </span>
+                  Tandai semua dibaca
+                </button>
+                <button
+                  className="p-2 bg-slate-200 outline-1 outline-slate-300 text-slate-700  hover:text-black rounded-lg shadow-sm cursor-pointer hover:outline-slate-500 transition-all"
+                  onClick={() => {
+                    handleCloseNotifPopup();
+                    navigate("notification");
+                  }}
+                >
+                  Lihat semua
+                </button>
               </div>
             </div>
           </PopUpMenu>
