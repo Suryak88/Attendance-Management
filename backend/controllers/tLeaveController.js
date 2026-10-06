@@ -12,13 +12,52 @@ import {
 } from "../utils/validateNotClosed.js";
 import { buildLeaveHtml } from "../utils/buildLeaveHtml.js";
 import path from "path";
-import puppeteer from "puppeteer";
 import fs from "fs";
 import { getBrowser } from "../services/pdfService.js";
 import { runWithLimit } from "../services/concurrency.js";
 import { authorityChecking } from "../services/authorityService.js";
 import { approveLeave } from "../services/approveLeaveService.js";
 import { buildLeaveDates } from "../utils/buildLeaveDates.js";
+import {
+  createNotification,
+  deleteNotification,
+} from "../services/Notification/notificationService.js";
+
+function getLeaveRequestSelectQuery() {
+  return `
+  SELECT a.*, DATE(a.tgl1) AS tglmulai, DATE(a.tgl2) AS tglakhir, c.nama AS "leaveName", b.namalengkap,  d.nama AS departemen, e.departemen_id, e.nama AS jabatan,
+        CASE WHEN a.fl_approve = 0 THEN 'Pending' 
+        WHEN a.fl_approve = 1 THEN 'Approved'
+        ELSE 'Rejected' END AS "status",
+        r.id AS revision_id,
+        r.old_tgl2,
+        r.new_tgl2,
+        r.fl_approve AS revision_status,
+        r.reason AS revision_reason,
+        r.log_date AS revision_log_date,
+        r.rejection_notes AS revision_rejection_notes,
+        COALESCE(r.log_date, a.log_date) AS sort_date
+        FROM t_leave a
+        LEFT JOIN reg_person b ON a.regnum = b.regnum 
+        LEFT JOIN m_leave c ON a.leave_id = c.id
+        LEFT JOIN
+          (SELECT
+            r1.*
+          FROM
+            t_leave_revision r1
+            JOIN
+              (SELECT
+                t_leave_id,
+                MAX(id) AS max_id
+              FROM
+                t_leave_revision
+              WHERE fl_hapus = 0
+              GROUP BY t_leave_id) r2
+              ON r1.id = r2.max_id) r
+          ON r.t_leave_id = a.id
+        LEFT JOIN m_departemen d ON b.departemen_id = d.id
+        LEFT JOIN m_jabatan e ON b.jabatan_id = e.id`;
+}
 
 export async function showLeaveQuota(req, res) {
   try {
@@ -68,6 +107,7 @@ export async function showLeaveReqHistory(req, res) {
         a.*,
         b.nama AS leavename,
         c.namalengkap AS approver,
+        r.id AS revisi_id,
         r.old_tgl1, 
         r.new_tgl1,
         r.old_tgl2,
@@ -260,13 +300,19 @@ export async function addLeaveRequest(req, res) {
       }
     }
 
-    await conn.query(
+    const [[employee]] = await conn.query(
+      `SELECT namalengkap, approver FROM reg_person
+      WHERE regnum = ?`,
+      [regnum],
+    );
+
+    const [result] = await conn.query(
       `INSERT INTO t_leave 
       (regnum, fullname, tgl1, tgl2, leave_id, keterangan, entry_by, medical_certificate_name, medical_certificate_original_name, medical_certificate_mime) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         regnum,
-        name,
+        employee.namalengkap.trim(),
         startDate,
         endDate,
         leaveType,
@@ -277,6 +323,19 @@ export async function addLeaveRequest(req, res) {
         medicalCertificate?.mimetype ?? null,
       ],
     );
+
+    await createNotification(conn, {
+      regnum: employee.approver,
+      type: "LEAVE_SUBMITTED",
+      data: {
+        employeeName: employee.namalengkap.trim(),
+        leaveName: leaveTypeRow.nama,
+        tgl1: startDate,
+        tgl2: endDate,
+      },
+      reference_type: "LEAVE",
+      reference_id: result.insertId,
+    });
 
     await conn.commit();
 
@@ -315,38 +374,7 @@ export async function showLeaveRequest(req, res) {
     const regnum = req.user.regnum;
     const { startDate, endDate, status, targetRegnum } = req.query;
 
-    let query = `SELECT a.*, DATE(a.tgl1) AS tglmulai, DATE(a.tgl2) AS tglakhir, c.nama AS "leaveName", b.namalengkap,  d.nama AS departemen, e.departemen_id, e.nama AS jabatan,
-        CASE WHEN a.fl_approve = 0 THEN 'Pending' 
-        WHEN a.fl_approve = 1 THEN 'Approved'
-        ELSE 'Rejected' END AS "status",
-        r.id AS revision_id,
-        r.old_tgl2,
-        r.new_tgl2,
-        r.fl_approve AS revision_status,
-        r.reason AS revision_reason,
-        r.log_date AS revision_log_date,
-        r.rejection_notes AS revision_rejection_notes,
-        COALESCE(r.log_date, a.log_date) AS sort_date
-        FROM t_leave a
-        LEFT JOIN reg_person b ON a.regnum = b.regnum 
-        LEFT JOIN m_leave c ON a.leave_id = c.id
-        LEFT JOIN
-          (SELECT
-            r1.*
-          FROM
-            t_leave_revision r1
-            JOIN
-              (SELECT
-                t_leave_id,
-                MAX(id) AS max_id
-              FROM
-                t_leave_revision
-              WHERE fl_hapus = 0
-              GROUP BY t_leave_id) r2
-              ON r1.id = r2.max_id) r
-          ON r.t_leave_id = a.id
-        LEFT JOIN m_departemen d ON b.departemen_id = d.id
-        LEFT JOIN m_jabatan e ON b.jabatan_id = e.id
+    let query = `${getLeaveRequestSelectQuery()}
         WHERE b.approver = ? 
         AND (
              tgl1 BETWEEN ? AND ?
@@ -562,6 +590,27 @@ export async function rejectLeaveReq(req, res) {
       [notes, regnum, id],
     );
 
+    const [[leaveData]] = await conn.query(
+      `SELECT a.regnum, a.tgl1, a.tgl2, b.nama AS leaveName
+        FROM t_leave a
+        LEFT JOIN m_leave b ON a.leave_id = b.id
+        WHERE a.fl_hapus = 0 
+        AND a.id = ?`,
+      [id],
+    );
+
+    await createNotification(conn, {
+      regnum: leaveData.regnum,
+      type: "LEAVE_REJECTED",
+      data: {
+        leaveName: leaveData.leaveName,
+        tgl1: leaveData.tgl1,
+        tgl2: leaveData.tgl2,
+      },
+      reference_type: "LEAVE",
+      reference_id: id,
+    });
+
     await conn.commit();
     return res.status(200).json({ message: "Request rejected!" });
   } catch (error) {
@@ -588,10 +637,10 @@ export async function cancelRequest(req, res) {
     );
 
     if (!leave) {
-      await conn.rollback();
-      return res.status(409).json({
-        message: "Request tidak ditemukan atau sudah diproses",
-      });
+      throw new BusinessError(
+        "REQUEST_INVALID",
+        "Request tidak ditemukan atau sudah diproses",
+      );
     }
 
     const [result] = await conn.query(
@@ -600,11 +649,17 @@ export async function cancelRequest(req, res) {
     );
 
     if (result.affectedRows === 0) {
-      await conn.rollback();
-      return res.status(409).json({
-        message: "Request gagal dibatalkan (status sudah berubah)",
-      });
+      throw new BusinessError(
+        "PROCESS_FAILED",
+        "Request gagal dibatalkan (status sudah berubah)",
+      );
     }
+
+    await deleteNotification(conn, {
+      type: "LEAVE_SUBMITTED",
+      reference_id: id,
+      reference_type: "LEAVE",
+    });
 
     await conn.commit();
     return res.status(200).json({ message: "Request cancelled!" });
@@ -668,7 +723,7 @@ export async function reviseRequest(req, res) {
     today.setHours(0, 0, 0, 0);
     const selisihWaktu = (today - rangeStartDate) / (1000 * 60 * 60 * 24);
     if (selisihWaktu > 90) {
-      throw new BusinessError("INVALID_DATE", "Cuti sudah lewat dari 1 bulan!");
+      throw new BusinessError("INVALID_DATE", "Cuti sudah lewat dari 3 bulan!");
     }
 
     const [[overlap]] = await conn.query(
@@ -709,6 +764,31 @@ export async function reviseRequest(req, res) {
       [id, leave.tgl2, toDate, reason, regnum],
     );
 
+    const [[employee]] = await conn.query(
+      `SELECT namalengkap, approver FROM reg_person
+      WHERE regnum = ?`,
+      [regnum],
+    );
+
+    const [[leaveName]] = await conn.query(
+      `SELECT nama FROM m_leave WHERE id = ?`,
+      [leave.leave_id],
+    );
+
+    await createNotification(conn, {
+      regnum: employee.approver,
+      type: "LEAVE_REVISE_SUBMITTED",
+      data: {
+        employeeName: employee.namalengkap,
+        leaveName: leaveName.nama,
+        tgl1: leave.tgl1,
+        tgl2old: leave.tgl2,
+        tgl2new: toDate,
+      },
+      reference_id: id,
+      reference_type: "LEAVE",
+    });
+
     await conn.commit();
     return res.status(201).json({ message: "Request submitted!" });
   } catch (error) {
@@ -728,10 +808,10 @@ export async function rejectRevision(req, res) {
     const { notes } = req.body;
     const regnum = req.user.regnum;
 
-    conn.beginTransaction();
+    await conn.beginTransaction();
 
     const [[revise]] = await conn.query(
-      `SELECT id FROM t_leave_revision WHERE id = ? AND fl_approve = 0 FOR UPDATE`,
+      `SELECT id, t_leave_id, new_tgl2 FROM t_leave_revision WHERE id = ? AND fl_approve = 0 FOR UPDATE`,
       [id],
     );
 
@@ -746,6 +826,32 @@ export async function rejectRevision(req, res) {
       `UPDATE t_leave_revision SET fl_approve = 2, rejection_notes = ?, approved_by = ?, approved_log = NOW() WHERE id = ?`,
       [notes, regnum, id],
     );
+
+    const [[leave]] = await conn.query(
+      `SELECT regnum, tgl1, tgl2, leave_id 
+      FROM t_leave 
+      WHERE id = ?`,
+      [revise.t_leave_id],
+    );
+
+    const [[leaveName]] = await conn.query(
+      `SELECT nama FROM m_leave 
+      WHERE id = ?`,
+      [leave.leave_id],
+    );
+
+    await createNotification(conn, {
+      regnum: leave.regnum,
+      type: "LEAVE_REVISE_REJECTED",
+      data: {
+        leaveName: leaveName.nama,
+        tgl1: leave.tgl1,
+        tgl2old: leave.tgl2,
+        tgl2new: revise.new_tgl2,
+      },
+      reference_id: revise.t_leave_id,
+      reference_type: "LEAVE",
+    });
 
     await conn.commit();
     return res.status(200).json({ message: "Request rejected!" });
@@ -813,7 +919,7 @@ export async function approveRevision(req, res) {
     }
 
     const [[type]] = await conn.query(
-      `SELECT quota_type FROM m_leave WHERE id = ?`,
+      `SELECT nama, quota_type FROM m_leave WHERE id = ?`,
       [leave.leave_id],
     );
 
@@ -887,6 +993,19 @@ export async function approveRevision(req, res) {
       WHERE id = ?`,
       [regnum, id],
     );
+
+    await createNotification(conn, {
+      regnum: leave.regnum,
+      type: "LEAVE_REVISE_APPROVED",
+      data: {
+        leaveName: type.nama,
+        tgl1: leave.tgl1,
+        tgl2old: leave.tgl2,
+        tgl2new: revision.new_tgl2,
+      },
+      reference_id: revision.t_leave_id,
+      reference_type: "LEAVE",
+    });
 
     await conn.commit();
     return res.status(200).json({ message: "Revision approved!" });
@@ -1064,13 +1183,13 @@ export async function revokeApproval(req, res) {
     );
 
     if (!authority) {
-      return res.status(403).json({ message: "Forbidden" });
+      throw new BusinessError("FORBIDDEN", "Forbidden");
     }
 
     await validateRangeNotClosed(conn, leave.regnum, leave.tgl1, leave.tgl2);
 
     const [[type]] = await conn.query(
-      `SELECT quota_type FROM m_leave WHERE id = ?`,
+      `SELECT quota_type, nama FROM m_leave WHERE id = ?`,
       [leave.leave_id],
     );
 
@@ -1132,6 +1251,18 @@ export async function revokeApproval(req, res) {
         [loginRegnum, revision.id],
       );
     }
+
+    await createNotification(conn, {
+      regnum: leave.regnum,
+      type: "LEAVE_REVOKED",
+      data: {
+        leaveName: type.nama,
+        tgl1: leave.tgl1,
+        tgl2: leave.tgl2,
+      },
+      reference_id: id,
+      reference_type: "LEAVE",
+    });
 
     await conn.commit();
     return res.status(200).json({ message: "Approval Revoked!" });
@@ -1470,6 +1601,90 @@ export async function getMedicalCertificate(req, res) {
 
     return res.sendFile(filePath);
   } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
+  } finally {
+    conn.release();
+  }
+}
+
+export async function fetchSpecificLeaveRequest(req, res) {
+  const conn = await dbAbsensi.getConnection();
+
+  try {
+    const regnum = req.user.regnum;
+    const { id } = req.params;
+
+    const [[request]] = await conn.query(
+      `
+      ${getLeaveRequestSelectQuery()}
+      WHERE b.approver = ? 
+      AND a.id = ?
+      `,
+      [regnum, id],
+    );
+
+    res.json(request);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
+  } finally {
+    conn.release();
+  }
+}
+
+export async function cancelReviseRequest(req, res) {
+  const conn = await dbAbsensi.getConnection();
+
+  try {
+    const regnum = req.user.regnum;
+    const { id } = req.params;
+
+    await conn.beginTransaction();
+
+    const [[revision]] = await conn.query(
+      `SELECT * FROM t_leave_revision 
+      WHERE id = ? AND fl_approve = 0 FOR UPDATE`,
+      [id],
+    );
+
+    const [[leave]] = await conn.query(
+      `SELECT id FROM t_leave 
+      WHERE id = ? AND regnum = ?`,
+      [revision.t_leave_id, regnum],
+    );
+
+    if (!revision || !leave) {
+      throw new BusinessError(
+        "REQUEST_INVALID",
+        "Request tidak ditemukan atau sudah diproses",
+      );
+    }
+
+    const [result] = await conn.query(
+      `UPDATE t_leave_revision 
+      SET fl_approve = 3, approved_by = ?, approved_log = NOW()
+      WHERE id = ? AND fl_approve = 0`,
+      [regnum, id],
+    );
+
+    if (result.affectedRows === 0) {
+      throw new BusinessError(
+        "PROCESS_FAILED",
+        "Revisi gagal dibatalkan (status sudah berubah)",
+      );
+    }
+
+    await deleteNotification(conn, {
+      type: "LEAVE_REVISE_SUBMITTED",
+      reference_id: revision.t_leave_id,
+      reference_type: "LEAVE",
+    });
+
+    await conn.commit();
+    return res.status(200).json({ message: "Revision Cancelled!" });
+  } catch (error) {
+    await conn.rollback();
     console.log(error);
     res.status(500).json({ message: error.message });
   } finally {
