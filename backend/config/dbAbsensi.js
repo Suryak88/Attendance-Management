@@ -5,6 +5,7 @@ dotenv.config();
 
 const dbAbsensi = mysql.createPool({
   host: process.env.DB_ABS_HOST,
+  port: Number(process.env.DB_ABS_PORT),
   user: process.env.DB_ABS_USER,
   password: process.env.DB_ABS_PASS,
   database: process.env.DB_ABS_NAME,
