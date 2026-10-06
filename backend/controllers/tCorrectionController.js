@@ -2,25 +2,57 @@ import dbAbsensi from "../config/dbAbsensi.js";
 import { BusinessError } from "../errors/BusinessError.js";
 import { approveCorrection } from "../services/approveCorrectionService.js";
 import { getLastAttendanceImported } from "../services/getLastAttendanceImported.js";
-import { validateAttendanceImported } from "../services/validateAttendanceImported.js";
+import {
+  createNotification,
+  deleteNotification,
+} from "../services/Notification/notificationService.js";
 import { validateRangeNotClosed } from "../utils/validateNotClosed.js";
+
+function getCorrectionRequestSelectQuery() {
+  return `
+    SELECT a.*, b.namalengkap, d.nama as departemen, e.departemen_id, e.nama as jabatan,
+      CASE WHEN a.fl_approve = 0 THEN 'Pending' 
+      WHEN a.fl_approve = 1 THEN 'Approved'
+      ELSE 'Rejected' END AS "status",
+      GREATEST(TIMESTAMPDIFF(MINUTE, CONCAT(DATE(a.masuk), ' ', s.jam_masuk), a.masuk ), 0 ) AS telat,
+      GREATEST(TIMESTAMPDIFF(MINUTE, a.pulang, CONCAT(DATE(a.pulang), ' ', s.jam_pulang)), 0) AS pulang_cepat
+      FROM t_correction a
+      LEFT JOIN reg_person b ON a.regnum = b.regnum 
+      LEFT JOIN m_work_calendar wc ON wc.work_date = a.tgl
+	    LEFT JOIN m_shift s ON s.id = wc.shift_id
+      LEFT JOIN m_departemen d ON b.departemen_id = d.id
+	    LEFT JOIN m_jabatan e ON b.jabatan_id = e.id `;
+}
+
+function getEmployeeCorrectionSelectQuery() {
+  return `
+  SELECT a.*, b.namalengkap AS approver,
+	  GREATEST(TIMESTAMPDIFF(MINUTE, CONCAT(DATE(a.masuk), ' ', s.jam_masuk), a.masuk ), 0 ) AS telat,
+	  GREATEST(TIMESTAMPDIFF(MINUTE, a.pulang, CONCAT(DATE(a.pulang), ' ', s.jam_pulang)), 0) AS pulang_cepat
+    FROM t_correction a 
+    LEFT JOIN reg_person b ON a.approved_by = b.regnum 
+    LEFT JOIN m_work_calendar wc ON wc.work_date = a.tgl
+	  LEFT JOIN m_shift s ON s.id = wc.shift_id`;
+}
 
 export async function showCorrectionReqHistory(req, res) {
   try {
     const regnum = req.user.regnum;
+    const { limit } = req.query;
 
-    const [history] = await dbAbsensi.query(
-      `	SELECT a.*, b.namalengkap AS approver,
-	      GREATEST(TIMESTAMPDIFF(MINUTE, CONCAT(DATE(a.masuk), ' ', s.jam_masuk), a.masuk ), 0 ) AS telat,
-	      GREATEST(TIMESTAMPDIFF(MINUTE, a.pulang, CONCAT(DATE(a.pulang), ' ', s.jam_pulang)), 0) AS pulang_cepat
-        FROM t_correction a 
-        LEFT JOIN reg_person b ON a.approved_by = b.regnum 
-        LEFT JOIN m_work_calendar wc ON wc.work_date = a.tgl
-	      LEFT JOIN m_shift s ON s.id = wc.shift_id
+    let query = `
+    ${getEmployeeCorrectionSelectQuery()}
         WHERE a.regnum = ?
-        ORDER BY a.id DESC`,
-      [regnum],
-    );
+        ORDER BY a.id DESC
+        `;
+
+    const params = [regnum];
+
+    if (limit) {
+      ((query += ` LIMIT ?`), params.push(parseInt(limit)));
+    }
+
+    const [history] = await dbAbsensi.query(query, params);
 
     res.json(history);
   } catch (error) {
@@ -159,11 +191,17 @@ export async function addCorrection(req, res) {
       }
     }
 
-    await conn.query(
+    const [[employee]] = await conn.query(
+      `SELECT namalengkap, approver FROM reg_person 
+      WHERE regnum = ?`,
+      [regnum],
+    );
+
+    const [result] = await conn.query(
       "INSERT INTO t_correction (regnum, fullname, tgl, masuk, pulang, keterangan, correction_type, entry_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         regnum,
-        name,
+        employee.namalengkap.trim(),
         date,
         clockIn,
         clockOut,
@@ -172,6 +210,18 @@ export async function addCorrection(req, res) {
         regnum,
       ],
     );
+
+    await createNotification(conn, {
+      regnum: employee.approver,
+      type: "CORRECTION_SUBMITTED",
+      data: {
+        employeeName: employee.namalengkap.trim(),
+        correction_type: correctionType,
+        tgl: date,
+      },
+      reference_type: "CORRECTION",
+      reference_id: result.insertId,
+    });
 
     await conn.commit();
 
@@ -202,18 +252,8 @@ export async function showCorrectionRequest(req, res) {
     const regnum = req.user.regnum;
     const { startDate, endDate, status, targetRegnum } = req.query;
 
-    let query = `SELECT a.*, b.namalengkap, d.nama as departemen, e.departemen_id, e.nama as jabatan,
-        CASE WHEN a.fl_approve = 0 THEN 'Pending' 
-        WHEN a.fl_approve = 1 THEN 'Approved'
-        ELSE 'Rejected' END AS "status",
-        GREATEST(TIMESTAMPDIFF(MINUTE, CONCAT(DATE(a.masuk), ' ', s.jam_masuk), a.masuk ), 0 ) AS telat,
-        GREATEST(TIMESTAMPDIFF(MINUTE, a.pulang, CONCAT(DATE(a.pulang), ' ', s.jam_pulang)), 0) AS pulang_cepat
-        FROM t_correction a
-        LEFT JOIN reg_person b ON a.regnum = b.regnum 
-        LEFT JOIN m_work_calendar wc ON wc.work_date = a.tgl
-	      LEFT JOIN m_shift s ON s.id = wc.shift_id
-        LEFT JOIN m_departemen d ON b.departemen_id = d.id
-	      LEFT JOIN m_jabatan e ON b.jabatan_id = e.id
+    let query = `
+        ${getCorrectionRequestSelectQuery()}
         WHERE b.approver = ? 
         AND a.tgl BETWEEN ? AND ?
         AND a.fl_approve <> 3 `;
@@ -344,20 +384,53 @@ export async function approveCorrectionReq(req, res) {
 }
 
 export async function rejectCorrectionReq(req, res) {
+  const conn = await dbAbsensi.getConnection();
   try {
     const { id } = req.params;
     const { notes } = req.body;
     const regnum = req.user.regnum;
 
-    await dbAbsensi.query(
+    await conn.beginTransaction();
+
+    const [[correction]] = await conn.query(
+      `SELECT id, regnum, tgl, correction_type 
+      FROM t_correction
+      WHERE fl_hapus = 0 AND fl_approve = 0 AND id = ? 
+      FOR UPDATE`,
+      [id],
+    );
+
+    if (!correction) {
+      throw new BusinessError(
+        "INVALID_REQUEST",
+        "Request sudah diproses atau dibatalkan",
+      );
+    }
+
+    await conn.query(
       `UPDATE t_correction SET fl_approve = 2, rejection_notes = ?, approved_by = ?, approved_log = NOW() WHERE id = ?`,
       [notes, regnum, id],
     );
 
+    await createNotification(conn, {
+      regnum: correction.regnum,
+      type: "CORRECTION_REJECTED",
+      data: {
+        tgl: correction.tgl,
+        correction_type: correction.correction_type,
+      },
+      reference_type: "CORRECTION",
+      reference_id: id,
+    });
+
+    await conn.commit();
     return res.status(200).json({ message: "Request rejected!" });
   } catch (error) {
+    await conn.rollback();
     console.log(error);
     res.status(500).json({ message: error.message });
+  } finally {
+    conn.release();
   }
 }
 
@@ -376,10 +449,10 @@ export async function cancelCorrectionRequest(req, res) {
     );
 
     if (!correction) {
-      await conn.rollback();
-      return res.status(409).json({
-        message: "Request tidak ditemukan atau sudah diproses",
-      });
+      throw new BusinessError(
+        "REQUEST_INVALID",
+        "Request tidak ditemukan atau sudah diproses",
+      );
     }
 
     const [result] = await conn.query(
@@ -388,11 +461,14 @@ export async function cancelCorrectionRequest(req, res) {
     );
 
     if (result.affectedRows === 0) {
-      await conn.rollback();
-      return res.status(409).json({
-        message: "Request gagal dibatalkan",
-      });
+      throw new BusinessError("PROCESS_FAILED", "Request gagal dibatalkan");
     }
+
+    await deleteNotification(conn, {
+      type: "CORRECTION_SUBMITTED",
+      reference_id: id,
+      reference_type: "CORRECTION",
+    });
 
     await conn.commit();
     return res.status(200).json({ message: "Request cancelled!" });
@@ -490,5 +566,54 @@ export async function fetchLastSynced(req, res) {
     res.status(500).json({ message: error.message });
   } finally {
     conn.release();
+  }
+}
+
+export async function fetchSpecificCorrectionRequest(req, res) {
+  try {
+    const regnum = req.user.regnum;
+    const { id } = req.params;
+
+    const [[request]] = await dbAbsensi.query(
+      `
+      ${getCorrectionRequestSelectQuery()}
+      WHERE a.id = ?
+      AND b.approver = ?
+      `,
+      [id, regnum],
+    );
+
+    if (!request) {
+      return res.status(404).json({ message: "Request tidak ditemukan" });
+    }
+
+    res.json(request);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export async function fetchSpecificEmployeeCorrection(req, res) {
+  try {
+    const regnum = req.user.regnum;
+    const { id } = req.params;
+
+    const [[request]] = await dbAbsensi.query(
+      `
+      ${getEmployeeCorrectionSelectQuery()}
+      WHERE a.regnum = ? 
+      AND a.id = ?`,
+      [regnum, id],
+    );
+
+    if (!request) {
+      return res.status(404).json({ message: "Request tidak ditemukan" });
+    }
+
+    res.status(200).json(request);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
   }
 }
