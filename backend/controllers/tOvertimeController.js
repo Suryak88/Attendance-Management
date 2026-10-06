@@ -1,15 +1,90 @@
 import dbAbsensi from "../config/dbAbsensi.js";
 import { BusinessError } from "../errors/BusinessError.js";
-import { formatDateIndo, formatMySQLTime } from "../utils/date.js";
-import {
-  calculateOvertimeHours,
-  calculateRealHours,
-  roundOvertimeHours,
-} from "../utils/overtimeCalculator.js";
+import { createNotification } from "../services/Notification/notificationService.js";
+import { formatDateIndo } from "../utils/date.js";
 import {
   validateDatesNotClosed,
   validateRangeNotClosed,
 } from "../utils/validateNotClosed.js";
+
+function getOvertimeApprovalSelectQuery() {
+  //Query Approver
+  return `
+  SELECT
+    	  a.*,
+    	  b.namalengkap,
+    	  d.nama AS departemen,
+    	  e.departemen_id, 
+    	  e.nama AS jabatan,
+    	  GREATEST(
+    	    0,
+    	    TIMESTAMPDIFF(
+    	      MINUTE,
+    	      TIMESTAMP(a.tgl, s.jam_masuk),
+    	      a.masuk
+    	    )
+    	  ) AS telat
+    	FROM t_overtime a
+      LEFT JOIN reg_person b ON a.regnum = b.regnum 
+      LEFT JOIN m_work_calendar wc ON a.tgl = wc.work_date
+      LEFT JOIN m_shift s ON wc.shift_id = s.id 
+      LEFT JOIN m_departemen d ON b.departemen_id = d.id
+      LEFT JOIN m_jabatan e ON b.jabatan_id = e.id`;
+}
+
+function getEmployeeOvertimeSelectQuery() {
+  //Query Employee
+  return `
+      SELECT a.*,
+    GREATEST(
+    	    0,
+    	    TIMESTAMPDIFF(
+    	      MINUTE,
+    	      TIMESTAMP(a.tgl, s.jam_masuk),
+    	      a.masuk
+    	    )
+    	  ) AS telat,
+    CASE
+    WHEN overtime_hours IS NULL THEN 'WAITING_DETECTION'
+    WHEN keterangan IS NULL OR TRIM(keterangan) = '' THEN 'NEED_DESCRIPTION'
+    WHEN fl_approve = 0 THEN 'WAITING_APPROVAL'
+    WHEN fl_approve = 1 AND applied_at IS NOT NULL THEN 'APPLIED'
+    WHEN fl_approve = 2 THEN 'REJECTED'
+    END AS overtime_status 
+    FROM t_overtime a
+    LEFT JOIN m_work_calendar wc ON a.tgl = wc.work_date
+    LEFT JOIN m_shift s ON wc.shift_id = s.id`;
+}
+
+function formatEmployeeOvertime(overtime) {
+  let overtime_status_formatted;
+
+  switch (overtime.overtime_status) {
+    case "WAITING_DETECTION":
+      overtime_status_formatted = "Waiting Overtime Detection";
+      break;
+    case "NEED_DESCRIPTION":
+      overtime_status_formatted = "Need Description";
+      break;
+    case "WAITING_APPROVAL":
+      overtime_status_formatted = "Waiting for Approval";
+      break;
+    case "APPLIED":
+      overtime_status_formatted = "Applied";
+      break;
+    case "REJECTED":
+      overtime_status_formatted = "Rejected";
+      break;
+    default:
+      overtime_status_formatted = "-";
+      break;
+  }
+
+  return {
+    ...overtime,
+    overtime_status_formatted,
+  };
+}
 
 export async function addOvertime(req, res) {
   const conn = await dbAbsensi.getConnection();
@@ -17,13 +92,13 @@ export async function addOvertime(req, res) {
   try {
     const regnum = req.user.regnum;
     const { date, description } = req.body;
-
+    let overtime_id = null;
     await conn.beginTransaction();
 
     await validateRangeNotClosed(conn, regnum, date, date);
 
     const [[employee]] = await conn.query(
-      `SELECT namalengkap FROM reg_person 
+      `SELECT namalengkap, approver FROM reg_person 
       WHERE regnum = ?`,
       [regnum],
     );
@@ -49,6 +124,7 @@ export async function addOvertime(req, res) {
             WHERE id = ?`,
           [description, request.id],
         );
+        overtime_id = request.id;
       } else {
         throw new BusinessError(
           "DUPLICATE_REQUEST",
@@ -56,12 +132,24 @@ export async function addOvertime(req, res) {
         );
       }
     } else {
-      await conn.query(
+      const [result] = await conn.query(
         `INSERT INTO t_overtime (regnum, fullname, tgl, keterangan, entry_by)
           VALUES (?, ?, ?, ?, ?)`,
-        [regnum, employee.namalengkap, date, description, regnum],
+        [regnum, employee.namalengkap.trim(), date, description, regnum],
       );
+      overtime_id = result.insertId;
     }
+
+    await createNotification(conn, {
+      regnum: employee.approver,
+      type: "OVERTIME_SUBMITTED",
+      data: {
+        employeeName: employee.namalengkap.trim(),
+        tgl: date,
+      },
+      reference_type: "OVERTIME",
+      reference_id: overtime_id,
+    });
 
     await conn.commit();
 
@@ -92,26 +180,7 @@ export async function showOvertimeRequest(req, res) {
     const regnum = req.user.regnum;
     const { startDate, endDate, status, targetRegnum } = req.query;
 
-    let query = `SELECT
-    	  a.*,
-    	  b.namalengkap,
-    	  d.nama AS departemen,
-    	  e.departemen_id, 
-    	  e.nama AS jabatan,
-    	  GREATEST(
-    	    0,
-    	    TIMESTAMPDIFF(
-    	      MINUTE,
-    	      TIMESTAMP(a.tgl, s.jam_masuk),
-    	      a.masuk
-    	    )
-    	  ) AS telat
-    	FROM t_overtime a
-      LEFT JOIN reg_person b ON a.regnum = b.regnum 
-      LEFT JOIN m_work_calendar wc ON a.tgl = wc.work_date
-      LEFT JOIN m_shift s ON wc.shift_id = s.id 
-      LEFT JOIN m_departemen d ON b.departemen_id = d.id
-      LEFT JOIN m_jabatan e ON b.jabatan_id = e.id
+    let query = `${getOvertimeApprovalSelectQuery()}
       WHERE b.approver = ? 
       AND a.tgl BETWEEN ? AND ?
       AND a.fl_hapus = 0
@@ -165,6 +234,16 @@ export async function rejectOvertimeReq(req, res) {
       [notes, regnum, id],
     );
 
+    await createNotification(conn, {
+      regnum: rows.regnum,
+      type: "OVERTIME_REJECTED",
+      data: {
+        tgl: rows.tgl,
+      },
+      reference_type: "OVERTIME",
+      reference_id: id,
+    });
+
     await conn.commit();
     return res.status(200).json({ message: "Request rejected!" });
   } catch (error) {
@@ -202,6 +281,16 @@ export async function approveOvertimeReq(req, res) {
 
     await conn.query("CALL khApply_Overtime()");
 
+    await createNotification(conn, {
+      regnum: rows.regnum,
+      type: "OVERTIME_APPROVED",
+      data: {
+        tgl: rows.tgl,
+      },
+      reference_type: "OVERTIME",
+      reference_id: id,
+    });
+
     await conn.commit();
     res.status(200).json({ message: "Request approved!" });
   } catch (error) {
@@ -219,25 +308,7 @@ export async function showOvertime(req, res) {
     const regnum = req.user.regnum;
 
     let query = `
-    SELECT a.*,
-    GREATEST(
-    	    0,
-    	    TIMESTAMPDIFF(
-    	      MINUTE,
-    	      TIMESTAMP(a.tgl, s.jam_masuk),
-    	      a.masuk
-    	    )
-    	  ) AS telat,
-    CASE
-    WHEN overtime_hours IS NULL THEN 'WAITING_DETECTION'
-    WHEN keterangan IS NULL OR TRIM(keterangan) = '' THEN 'NEED_DESCRIPTION'
-    WHEN fl_approve = 0 THEN 'WAITING_APPROVAL'
-    WHEN fl_approve = 1 AND applied_at IS NOT NULL THEN 'APPLIED'
-    WHEN fl_approve = 2 THEN 'REJECTED'
-    END AS overtime_status 
-    FROM t_overtime a
-    LEFT JOIN m_work_calendar wc ON a.tgl = wc.work_date
-    LEFT JOIN m_shift s ON wc.shift_id = s.id 
+    ${getEmployeeOvertimeSelectQuery()}
     WHERE regnum = ?
     AND a.fl_hapus = 0
     `;
@@ -263,34 +334,7 @@ export async function showOvertime(req, res) {
 
     const [overtime] = await dbAbsensi.query(query, params);
 
-    const data = overtime.map((o) => {
-      let overtime_status_formatted;
-      switch (o.overtime_status) {
-        case "WAITING_DETECTION":
-          overtime_status_formatted = "Waiting Overtime Detection";
-          break;
-        case "NEED_DESCRIPTION":
-          overtime_status_formatted = "Need Description";
-          break;
-        case "WAITING_APPROVAL":
-          overtime_status_formatted = "Waiting for Approval";
-          break;
-        case "APPLIED":
-          overtime_status_formatted = "Applied";
-          break;
-        case "REJECTED":
-          overtime_status_formatted = "Rejected";
-          break;
-        default:
-          overtime_status_formatted = "-";
-          break;
-      }
-
-      return {
-        ...o,
-        overtime_status_formatted,
-      };
-    });
+    const data = overtime.map(formatEmployeeOvertime);
 
     res.json(data);
   } catch (error) {
@@ -369,6 +413,18 @@ export async function bulkApproveOvertime(req, res) {
 
     await conn.query("CALL khApply_Overtime()");
 
+    for (const r of rows) {
+      await createNotification(conn, {
+        regnum: r.regnum,
+        type: "OVERTIME_APPROVED",
+        data: {
+          tgl: r.tgl,
+        },
+        reference_type: "OVERTIME",
+        reference_id: r.id,
+      });
+    }
+
     await conn.commit();
     res.status(200).json({ message: "Request Approved!" });
   } catch (error) {
@@ -377,5 +433,62 @@ export async function bulkApproveOvertime(req, res) {
     res.status(500).json({ message: error.message });
   } finally {
     conn.release();
+  }
+}
+
+export async function fetchSpecificOvertimeRequest(req, res) {
+  try {
+    const regnum = req.user.regnum;
+    const { id } = req.params;
+
+    const [[request]] = await dbAbsensi.query(
+      `
+      ${getOvertimeApprovalSelectQuery()}
+      WHERE b.approver = ?
+      AND a.id = ?
+      AND a.fl_hapus = 0
+      `,
+      [regnum, id],
+    );
+
+    if (!request) {
+      return res.status(404).json({
+        message: "Overtime request tidak ditemukan",
+      });
+    }
+
+    res.status(200).json(request);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
+  }
+}
+
+// Untuk yg di employee, History bar lalu klik detail
+export async function fetchSpecificEmployeeOvertime(req, res) {
+  try {
+    const regnum = req.user.regnum;
+    const { id } = req.params;
+
+    const [[result]] = await dbAbsensi.query(
+      `${getEmployeeOvertimeSelectQuery()}
+      WHERE a.regnum = ? 
+      AND a.id = ? 
+      AND a.fl_hapus = 0`,
+      [regnum, id],
+    );
+
+    if (!result) {
+      return res.status(404).json({
+        message: "Overtime request tidak ditemukan",
+      });
+    }
+
+    const data = formatEmployeeOvertime(result);
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
   }
 }
