@@ -1,5 +1,4 @@
 import { X } from "lucide-react";
-import FormContent from "./contents/FormContent";
 
 export default function ModalPanel({
   title,
@@ -9,6 +8,7 @@ export default function ModalPanel({
   titlePosition = "text-center",
   badgeColor,
   badgeLabel,
+  loading = false,
 }) {
   return (
     // <div className="relative w-full md:w-full md:h-full lg:h-auto lg:w-auto lg:max-w-2xl md:justify-center md:items-center md:flex m-auto border border-slate-200 rounded-xl p-3 lg:p-5 shadow-lg bg-slate-100">
@@ -24,32 +24,52 @@ export default function ModalPanel({
             <X />
           </span>
         )}
-        <div className="flex gap-2 items-center">
-          <div className="flex flex-col flex-1">
-            <h2
-              className={`font-semibold text-xl ${titlePosition} pt-5 pb-7 transition-all duration-300 
-          md:text-2xl 
-          lg:pb-10`}
-            >
-              {title}
-            </h2>
-            {subtitle && (
-              <h5
-                className={`font-medium text-base ${titlePosition} -mt-7 pb-5 transition-all duration-300 text-slate-400 
-            md:text-base 
-            lg:pb-5 lg:-mt-10`}
+        <div className="flex gap-2 items-center my-5">
+          {loading ? (
+            <>
+              <div className="flex flex-col flex-1 gap-0.5 text-transparent">
+                <h2
+                  className={`skeleton rounded-xl bg-slate-200 w-fit font-semibold text-xl ${titlePosition} mt-5 md:text-2xl`}
+                >
+                  Loading...
+                </h2>
+                <h5
+                  className={`skeleton rounded-xl bg-slate-200 w-fit font-medium text-base ${titlePosition} mb-5 md:text-base`}
+                >
+                  Loading
+                </h5>
+              </div>
+              <div
+                className={`skeleton bg-slate-200 text-transparent px-2 py-0.5 mr-2 rounded-full text-sm h-fit flex`}
               >
-                {subtitle}
-              </h5>
-            )}
-          </div>
-
-          {badgeColor && (
-            <div
-              className={`px-2 py-0.5 mr-2 rounded-full outline-1 text-sm h-fit flex ${badgeColor}`}
-            >
-              {badgeLabel}
-            </div>
+                Loading
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col flex-1 justify-center">
+                <h2
+                  className={`font-semibold text-xl ${titlePosition} transition-all duration-300 md:text-2xl 
+                  `}
+                >
+                  {title}
+                </h2>
+                {subtitle && (
+                  <h5
+                    className={`font-medium text-base ${titlePosition} transition-all duration-300 text-slate-400 md:text-base`}
+                  >
+                    {subtitle}
+                  </h5>
+                )}
+              </div>
+              {badgeColor && (
+                <div
+                  className={`px-2 py-0.5 mr-2 rounded-full outline-1 text-sm h-fit flex ${badgeColor}`}
+                >
+                  {badgeLabel}
+                </div>
+              )}
+            </>
           )}
         </div>
 
