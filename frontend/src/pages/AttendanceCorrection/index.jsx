@@ -17,7 +17,7 @@ import { useModal } from "../../hooks/useModal";
 import Modal from "../../components/organisms/Modal";
 import ModalPanel from "../../components/organisms/Modal/modalPanel";
 import FormSuccess from "../../components/organisms/Modal/contents/FormSuccess";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import HistoryBar from "../../components/organisms/HistoryBar";
 import { approvalStatusConfig } from "../../utils/statusColor";
@@ -30,6 +30,8 @@ import CheckBox from "../../components/atoms/CheckBox";
 
 export default function AttendanceCorrection() {
   const { state } = useLocation();
+  const [searchParams] = useSearchParams();
+  const requestId = searchParams.get("id");
   const [dateDisplay, setDateDisplay] = useState("");
   const [clockInDisplay, setClockInDisplay] = useState("");
   const [clockOutDisplay, setClockOutDisplay] = useState("");
@@ -82,6 +84,13 @@ export default function AttendanceCorrection() {
   const skeletonLoop = Array.from({ length: 3 });
   const [importedUntil, setImportedUntil] = useState(null);
   const attendanceImported = isAttendanceImported(form.corrDate, importedUntil);
+  const [targetedCorrection, setTargetedCorrection] = useState(null);
+  const [isFlashing, setIsFlashing] = useState(true);
+  const displayedHistory =
+    targetedCorrection &&
+    !reqHistory.some((item) => item.id === targetedCorrection.id)
+      ? [...reqHistory, targetedCorrection]
+      : reqHistory;
 
   useEffect(() => {
     if (!form.corrDate || !user) return;
@@ -109,6 +118,44 @@ export default function AttendanceCorrection() {
     if (!user) return;
     fetchReqHistory();
   }, [user]);
+
+  useEffect(() => {
+    if (!requestId) return;
+
+    const element = document.getElementById(`correction-${requestId}`);
+
+    if (!element) return;
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+
+    setIsFlashing(true);
+
+    const timer = setTimeout(() => {
+      setIsFlashing(false);
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, [requestId, reqHistory, targetedCorrection]);
+
+  useEffect(() => {
+    if (!requestId) {
+      setTargetedCorrection(null);
+      return;
+    }
+
+    const existing = reqHistory.find((item) => item.id === Number(requestId));
+
+    if (existing) {
+      setTargetedCorrection(null);
+      return;
+    }
+
+    fetchSpecificRequest(requestId);
+  }, [requestId, reqHistory]);
 
   function setField(field, value) {
     setForm((prev) => ({
@@ -211,7 +258,9 @@ export default function AttendanceCorrection() {
   async function fetchReqHistory() {
     startLoading();
     await api
-      .get("/attendanceCorrection/")
+      .get("/attendanceCorrection/", {
+        params: { limit: 50 },
+      })
       .then((res) => {
         const enrichedData = res.data.map(enrichCorrection);
         setReqHistory(enrichedData);
@@ -236,6 +285,17 @@ export default function AttendanceCorrection() {
       toast.error(
         error?.response?.data?.message || "Gagal membatalkan request",
       );
+    }
+  }
+
+  async function fetchSpecificRequest(id) {
+    try {
+      const res = await api.get(`attendanceCorrection/${id}/request`);
+
+      const data = enrichCorrection(res.data);
+      setTargetedCorrection(data);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to fetch request");
     }
   }
 
@@ -487,7 +547,7 @@ export default function AttendanceCorrection() {
       </Modal>
 
       <HistoryBar>
-        <div className="flex flex-1 gap-5 items-center ">
+        <div className="flex flex-1 gap-5 items-center">
           {reqHistory.length < 1 && !loading && (
             <div className="text-sm text-center">
               <p>No data</p>
@@ -539,10 +599,11 @@ export default function AttendanceCorrection() {
                   </div>
                 </div>
               ))
-            : reqHistory.map((item, index) => (
+            : displayedHistory.map((item, index) => (
                 <div
-                  className="flex flex-col w-55 lg:w-65 h-fit rounded-xl p-2 outline outline-slate-400 shadow-sm"
+                  className={`flex flex-col w-55 lg:w-65 h-fit rounded-xl p-2 outline outline-slate-400 shadow-sm transition-all duration-500 ease-in-out ${item.id === Number(requestId) ? "ring-3 ring-sky-200" : ""} ${item.id === Number(requestId) && isFlashing ? "scale-[1.01] shadow-md ring-offset-1 ring-offset-sky-400 bg-sky-50" : "scale-100"}`}
                   key={index}
+                  id={`correction-${item.id}`}
                 >
                   <div className="flex py-1 justify-between items-center">
                     <div className="">{item?.thumbnail.name}</div>
