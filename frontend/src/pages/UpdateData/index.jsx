@@ -11,6 +11,7 @@ import ModalPanel from "../../components/organisms/Modal/modalPanel";
 import Button from "../../components/atoms/Button";
 import { useModal } from "../../hooks/useModal";
 import FormSuccess from "../../components/organisms/Modal/contents/FormSuccess";
+import { Megaphone } from "lucide-react";
 
 export default function UpdateData() {
   const [formKey, setFormKey] = useState(0);
@@ -123,12 +124,34 @@ export default function UpdateData() {
     }
   }
 
+  async function sendNotif() {
+    try {
+      const res = await api.post("/notification/updateDataPresensi");
+
+      toast.success(res.data.message);
+    } catch (error) {
+      console.log(error);
+      toast.error(error?.response?.data?.message || "Failed to send notif");
+    }
+  }
+
   return (
     <div className="bg-slate-100 flex flex-1 flex-col p-0.5 min-h-0">
       <div className="p-3 font-normal">
         <h3 className="text-xl md:text-2xl font-medium">
           Update Attendance Data
         </h3>
+      </div>
+      <div className="flex mx-4 mt-5">
+        <button
+          className="flex p-2 bg-slate-100 rounded-lg shadow-sm font-medium text-sm outline-1 cursor-pointer transition-all outline-slate-400 hover:text-black/60 hover:outline-slate-500 hover:shadow-md items-center gap-2 disabled:text-black/40"
+          onClick={sendNotif}
+        >
+          <span>
+            <Megaphone className="size-5" />
+          </span>
+          Send Notif Update Absensi
+        </button>
       </div>
       <div className="w-full flex flex-1 flex-col mt-5 space-y-2 min-h-0">
         <div
@@ -203,7 +226,8 @@ export default function UpdateData() {
                   </div>
                 )}
               </button>
-              <button
+              {/* Dijalankan hanya untuk awal launching di lantai 6 */}
+              {/* <button
                 onClick={handleSyncCuti}
                 className="flex px-2 py-1 w-25 -translate-y-3 bg-slate-100 rounded-lg shadow-sm font-medium text-sm outline-1 cursor-pointer transition-all outline-slate-400 hover:text-black/60 hover:outline-slate-500 hover:shadow-md items-center gap-2 disabled:text-black/40"
                 disabled={hadirrLoader.loading}
@@ -215,7 +239,7 @@ export default function UpdateData() {
                 ) : (
                   <div className="flex w-full justify-center">Sync Cuti</div>
                 )}
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
