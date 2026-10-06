@@ -250,6 +250,39 @@ function countWorkingDays(startDate, endDate, holidaySet = new Set()) {
   return days;
 }
 
+function formatTimeAgo(date) {
+  const targetDate = new Date(date.replace(" ", "T"));
+  const now = new Date();
+
+  const diffMs = now - targetDate;
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) {
+    return "Baru saja";
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes} menit lalu`;
+  }
+
+  if (diffHours < 24) {
+    return `${diffHours} jam lalu`;
+  }
+
+  if (diffDays < 7) {
+    return `${diffDays} hari lalu`;
+  }
+
+  return targetDate.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export {
   formatMySQLTime,
   isoUtcToMySQLLocal,
@@ -264,4 +297,5 @@ export {
   parseLocalDate,
   countWorkingDays,
   formatDateRangeIndo,
+  formatTimeAgo,
 };
