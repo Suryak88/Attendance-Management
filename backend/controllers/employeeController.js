@@ -1,11 +1,6 @@
 import dbAbsensi from "../config/dbAbsensi.js";
 import bcrypt from "bcrypt";
-import {
-  formatLocalDate,
-  formatMySQLTime,
-  isoUtcToMySQLLocal,
-  toDateOnly,
-} from "../utils/date.js";
+import { formatLocalDate, isoUtcToMySQLLocal } from "../utils/date.js";
 
 export async function getInitialForm(req, res) {
   const conn = await dbAbsensi.getConnection();
@@ -89,6 +84,7 @@ export async function addEmployee(req, res) {
 
     if (nextRegnum !== regnum && usedRegnum.length !== 0 && !req.body.force) {
       employeeRegnum = nextRegnum;
+      await conn.rollback();
       return res.status(409).json({
         code: "REGNUM_HAS_BEEN_USED",
         nextRegnum,
@@ -107,7 +103,6 @@ export async function addEmployee(req, res) {
 
     const expired = `${startWorkYear + 1}-03-31`;
 
-    console.log("ini addEmployee");
     await conn.query(
       `INSERT INTO reg_person
       (regnum, namalengkap, nik, tempat_lahir, tanggal_lahir, mulai_kerja, company_id, divisi_id, departemen_id, jabatan_id, role, floor_id, log_date, approver, is_overtime_enabled)

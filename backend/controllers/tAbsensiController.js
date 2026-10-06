@@ -1,7 +1,6 @@
 import dbAbsensi from "../config/dbAbsensi.js";
 import { buildSummary } from "../utils/buildSummary.js";
 import { buildHTML } from "../utils/buildHtml.js";
-import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 import { BusinessError } from "../errors/BusinessError.js";
@@ -320,8 +319,8 @@ export async function submitSolveConflict(req, res) {
         [targetRegnum, loginRegnum],
       );
 
-      if (rows.length === 0)
-        return res.status(403).json({ message: "Forbidden" });
+      if (rows.length === 0) throw new BusinessError("Forbidden", "Forbidden");
+      return res.status(403).json({ message: "Forbidden" });
     }
 
     const [[[logs]]] = await conn.query("CALL khabsensi_user(?, ?, ?, ?, ?)", [
@@ -371,10 +370,10 @@ export async function submitSolveConflict(req, res) {
       );
 
       if (pendingLeaves.length > 0 && !req.body.force) {
-        return res.status(409).json({
-          code: "PENDING_LEAVE_EXISTS",
-          message: "Terdapat pengajuan revisi cuti pending pada tanggal ini",
-        });
+        throw new BusinessError(
+          "PENDING_LEAVE_EXISTS",
+          "Terdapat pengajuan revisi cuti pending pada tanggal ini",
+        );
       }
 
       if (req.body.force) {
@@ -643,8 +642,7 @@ export async function fetchCloseAttendanceStatus(req, res) {
         [effectiveRegnum, loginRegnum],
       );
 
-      if (rows.length === 0)
-        return res.status(403).json({ message: "Forbidden" });
+      if (rows.length === 0) throw new BusinessError("Forbidden", "Forbidden");
     }
 
     let query = `

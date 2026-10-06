@@ -25,8 +25,7 @@ export async function submitCloseAttendance(req, res) {
         [effectiveRegnum, loginRegnum],
       );
 
-      if (rows.length === 0)
-        return res.status(403).json({ message: "Forbidden" });
+      if (rows.length === 0) throw new BusinessError("Forbidden", "Forbidden");
     }
 
     // const [existing] = await conn.query(
