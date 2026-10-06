@@ -20,6 +20,7 @@ import { useEffect } from "react";
 import Employee from "./pages/Employee";
 import EmployeeForm from "./pages/EmployeeForm";
 import OvertimeChecking from "./pages/OvertimeChecking";
+import Notification from "./pages/Notification";
 
 export default function App() {
   useEffect(() => {
@@ -132,6 +133,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="notification" element={<Notification />} />
             <Route path="*" element={<NotFound />} />
           </Route>
 
