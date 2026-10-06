@@ -36,8 +36,6 @@ import ActionFormSection from "../../components/organisms/ActionFormSection";
 import CheckBox from "../../components/atoms/CheckBox";
 import {
   Check,
-  SquarePen,
-  Pen,
   PenLine,
   EllipsisVertical,
   ArrowRight,
@@ -48,12 +46,14 @@ import {
 import { columns } from "../../data/leaveApprovalTableHead";
 import { truncateText } from "../../utils/truncateText";
 import SidebarButton from "../../components/atoms/SidebarButton";
-import { FloatingPortal } from "@floating-ui/react";
 import AttachmentPreview from "../../components/organisms/AttachmentPreview";
 import { formatCapitalize } from "../../utils/formatCapitalize";
+import { useSearchParams } from "react-router-dom";
 
 export default function LeaveApproval() {
   const { user, subordinates } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
+  const requestId = searchParams.get("id");
   const [request, setRequest] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectNotes, setRejectNotes] = useState("");
@@ -106,6 +106,7 @@ export default function LeaveApproval() {
   const pdfLoader = useDelayedLoading();
   const submitBulkLoader = useDelayedLoading();
   const previewFileLoader = useDelayedLoading();
+  const modalLoader = useDelayedLoading();
   const skeletonLoop = Array.from({ length: 5 });
   const requestIdRef = useRef(0);
   const [cutiDetail, setCutiDetail] = useState([]);
@@ -139,6 +140,12 @@ export default function LeaveApproval() {
     window.addEventListener("scroll", handleScroll, true);
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [rowPopup]);
+
+  useEffect(() => {
+    if (!requestId) return;
+
+    fetchSpecificRequest(requestId);
+  }, [requestId]);
 
   async function fetchLeaveRequests() {
     const requestId = ++requestIdRef.current;
@@ -561,6 +568,28 @@ export default function LeaveApproval() {
     }
   }
 
+  async function fetchSpecificRequest(id) {
+    try {
+      modalLoader.startLoading();
+      openModal();
+      const res = await api.get(`/leaveApproval/${id}/request`);
+      const enrichedData = {
+        ...res.data,
+        duration: countWorkingDays(
+          parseLocalDate(res.data.tgl1),
+          parseLocalDate(res.data.tgl2),
+          holidaySet,
+        ),
+      };
+
+      handleClickDetail(enrichedData);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to fetch request");
+    } finally {
+      modalLoader.stopLoading();
+    }
+  }
+
   return (
     <>
       <div className="bg-slate-100 flex flex-1 flex-col p-0.5 min-h-0">
@@ -866,165 +895,221 @@ export default function LeaveApproval() {
                 handleClose={handleClose}
                 badgeColor={statusConfig?.badgeClass ?? ""}
                 badgeLabel={statusConfig?.label ?? ""}
+                loading={modalLoader.loading}
               >
-                <FormContent>
-                  <div className="flex gap-3 w-full mb-1 lg:mb-1.5">
-                    <div className="flex flex-1 flex-col rounded-xl bg-slate-200 p-2 outline-1 outline-slate-300 shadow-sm">
-                      <p className="text-xs">From</p>
-                      <p className="font-medium text-sm lg:text-base">
-                        <span className="md:hidden">
-                          {formatDateIndo(selectedRequest?.tgl1, "short")}
-                        </span>
-                        <span className="hidden md:inline">
-                          {formatDateIndo(selectedRequest?.tgl1, "long")}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex items-center">
-                      <span>
-                        <ArrowRight />
-                      </span>
-                    </div>
-                    <div className="flex flex-1 flex-col rounded-xl bg-slate-200 p-2 outline-1 outline-slate-300 shadow-sm ">
-                      <p className="text-xs">To</p>
-                      <p className="font-medium text-sm lg:text-base">
-                        <span className="md:hidden">
-                          {formatDateIndo(selectedRequest?.tgl2, "short")}
-                        </span>
-                        <span className="hidden md:inline">
-                          {formatDateIndo(selectedRequest?.tgl2, "long")}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between w-full text-sm mb-1">
-                    <p>Total Duration</p>
-                    <p className="font-medium">
-                      {selectedRequest?.duration} Day(s)
-                    </p>
-                  </div>
-                  <div className="flex justify-between w-full text-sm mb-4">
-                    <p>Current Leave Quota</p>
-                    <div className="flex items-center gap-1">
-                      <span
-                        className={`rounded-full p-0.5 leading-none transition duration-300 ease-in-out ${popupOpen ? "bg-slate-300" : ""} select-none cursor-pointer hover:text-black/50 transition duration-300 ease-in-out`}
-                        onClick={handleCutiDetail}
-                      >
-                        <Info className="size-4" />
-                      </span>
-                      <p className="font-medium">{leaveQuota} Day(s)</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-1 w-full text-lg text-slate-800 font-medium mb-1">
-                    <p>{selectedRequest?.leaveName}</p>
-                  </div>
-                  <div className="flex flex-col gap-2 mb-2 outline-1 outline-slate-400 rounded-xl shadow-md text-sm w-full p-2">
-                    <div className="flex justify-between gap-10">
-                      <p>Desc</p>
-                      <p className="text-right">
-                        {selectedRequest?.keterangan}
-                      </p>
-                    </div>
-                    <div className="flex justify-between">
-                      <p>Req. Date</p>
-                      <p className="text-right">
-                        {formatDateIndo(selectedRequest?.log_date)}
-                      </p>
-                    </div>
-                    {selectedRequest?.leave_id === 1 &&
-                      selectedRequest?.medical_certificate_name && (
-                        <div className="flex justify-between">
-                          <p>Medical Certificate</p>
-                          {selectedRequest?.medical_certificate_mime?.startsWith(
-                            "image/",
-                          ) ? (
-                            <div
-                              className="flex gap-1 group"
-                              onClick={() => setOpenPreview(true)}
-                              title="Preview File"
-                            >
-                              {previewFileLoader.loading ? (
-                                <BtnLoading />
-                              ) : (
-                                <img
-                                  src={previewFiles}
-                                  className="h-6 rounded object-cover cursor-zoom-in select-none hover:opacity-80 transition group-hover:opacity-80"
-                                />
-                              )}
-                              <span className="cursor-pointer group-hover:underline shrink-0">
-                                {truncateText(
-                                  selectedRequest?.medical_certificate_original_name,
-                                  20,
-                                )}
-                              </span>
-                            </div>
-                          ) : (
-                            <div
-                              className="flex gap-1 group"
-                              onClick={() => setOpenPreview(true)}
-                              title="Preview File"
-                            >
-                              {previewFileLoader.loading ? (
-                                <BtnLoading />
-                              ) : (
-                                <File
-                                  className="size-4.5 hover:opacity-80 group-hover:opacity-80 cursor-pointer"
-                                  strokeWidth={"1.5px"}
-                                />
-                              )}
-                              <span className="cursor-pointer group-hover:underline shrink-0">
-                                {truncateText(
-                                  selectedRequest?.medical_certificate_original_name,
-                                  20,
-                                )}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                  </div>
-                  {selectedRequest?.new_tgl2 && (
-                    <div className="flex flex-col flex-1 w-full mt-2">
-                      <div className="flex flex-1 w-full justify-between text-slate-800 mb-3">
-                        <p className="font-medium text-base">Revision</p>
-                        <div
-                          className={`px-1.5 py-0.5 mt-0.5 rounded-full outline-1 text-sm h-fit ${
-                            approvalStatusConfig[
-                              selectedRequest?.revision_status
-                            ]?.badgeClass ?? ""
-                          }`}
-                        >
-                          {approvalStatusConfig[
-                            selectedRequest?.revision_status
-                          ]?.label ?? ""}
-                        </div>
+                {modalLoader.loading ? (
+                  <FormContent>
+                    <div className="text-transparent flex gap-3 w-full mb-1 lg:mb-1.5">
+                      <div className="skeleton flex flex-1 flex-col rounded-xl bg-slate-200 p-2 outline-1 outline-slate-300 shadow-sm">
+                        <p className="text-xs">From</p>
+                        <p className="font-medium text-sm lg:text-base">
+                          Loading
+                        </p>
                       </div>
-                      <div className="flex flex-col gap-2 mb-2 outline-1 outline-slate-400 rounded-xl shadow-md text-sm w-full p-2">
-                        <div className="flex justify-between">
-                          <p>Date Change</p>
-                          <p className="text-right">
-                            {formatDateIndo(selectedRequest?.old_tgl2)}
-                            {" → "}
-                            {formatDateIndo(selectedRequest?.new_tgl2)}
-                          </p>
-                        </div>
-                        <div className="flex justify-between gap-10">
-                          <p>Reason</p>
-                          <p className="text-right">
-                            {selectedRequest?.revision_reason}
-                          </p>
-                        </div>
-                        <div className="flex justify-between">
-                          <p>Req. Date</p>
-                          <p className="text-right">
-                            {formatDateIndo(selectedRequest?.revision_log_date)}
-                          </p>
-                        </div>
+                      <div className="flex items-center">
+                        <span>
+                          <ArrowRight />
+                        </span>
+                      </div>
+                      <div className="skeleton flex flex-1 flex-col rounded-xl bg-slate-200 p-2 outline-1 outline-slate-300 shadow-sm ">
+                        <p className="text-xs">To</p>
+                        <p className="font-medium text-sm lg:text-base">
+                          Loading
+                        </p>
                       </div>
                     </div>
-                  )}
+                    <div className="text-transparent skeleton rounded-xl bg-slate-200 flex justify-between w-full text-sm mb-1">
+                      <p>Loading</p>
+                    </div>
+                    <div className="text-transparent skeleton rounded-xl bg-slate-200 flex justify-between w-full text-sm mb-1">
+                      <p>Loading</p>
+                    </div>
 
-                  {/* <div
+                    <div className="text-transparent flex flex-1 w-full text-lg font-medium mb-1 mt-4">
+                      <p className="skeleton bg-slate-200 rounded-xl">
+                        Loading ... Loading ...
+                      </p>
+                    </div>
+                    <div className="text-transparent skeleton bg-slate-200 flex flex-col gap-2 mb-2 outline-1 outline-slate-300 rounded-xl text-sm w-full p-2">
+                      <div className="flex justify-between gap-10">
+                        <p>Loading</p>
+                      </div>
+                      <div className="flex justify-between">
+                        <p>Loading</p>
+                      </div>
+                    </div>
+                    <div
+                      className={`text-transparent flex gap-12 mt-5 transition-all `}
+                    >
+                      <div className="skeleton bg-slate-200 rounded-xl">
+                        Loading
+                      </div>
+                      <div className="skeleton bg-slate-200 rounded-xl">
+                        Loading
+                      </div>
+                    </div>
+                  </FormContent>
+                ) : (
+                  <FormContent>
+                    <div className="flex gap-3 w-full mb-1 lg:mb-1.5">
+                      <div className="flex flex-1 flex-col rounded-xl bg-slate-200 p-2 outline-1 outline-slate-300 shadow-sm">
+                        <p className="text-xs">From</p>
+                        <p className="font-medium text-sm lg:text-base">
+                          <span className="md:hidden">
+                            {formatDateIndo(selectedRequest?.tgl1, "short")}
+                          </span>
+                          <span className="hidden md:inline">
+                            {formatDateIndo(selectedRequest?.tgl1, "long")}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-center">
+                        <span>
+                          <ArrowRight />
+                        </span>
+                      </div>
+                      <div className="flex flex-1 flex-col rounded-xl bg-slate-200 p-2 outline-1 outline-slate-300 shadow-sm ">
+                        <p className="text-xs">To</p>
+                        <p className="font-medium text-sm lg:text-base">
+                          <span className="md:hidden">
+                            {formatDateIndo(selectedRequest?.tgl2, "short")}
+                          </span>
+                          <span className="hidden md:inline">
+                            {formatDateIndo(selectedRequest?.tgl2, "long")}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between w-full text-sm mb-1">
+                      <p>Total Duration</p>
+                      <p className="font-medium">
+                        {selectedRequest?.duration} Day(s)
+                      </p>
+                    </div>
+                    <div className="flex justify-between w-full text-sm mb-4">
+                      <p>Current Leave Quota</p>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`rounded-full p-0.5 leading-none transition duration-300 ease-in-out ${popupOpen ? "bg-slate-300" : ""} select-none cursor-pointer hover:text-black/50 transition duration-300 ease-in-out`}
+                          onClick={handleCutiDetail}
+                        >
+                          <Info className="size-4" />
+                        </span>
+                        <p className="font-medium">{leaveQuota} Day(s)</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-1 w-full text-lg text-slate-800 font-medium mb-1">
+                      <p>{selectedRequest?.leaveName}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 mb-2 outline-1 outline-slate-400 rounded-xl shadow-md text-sm w-full p-2">
+                      <div className="flex justify-between gap-10">
+                        <p>Desc</p>
+                        <p className="text-right">
+                          {selectedRequest?.keterangan}
+                        </p>
+                      </div>
+                      <div className="flex justify-between">
+                        <p>Req. Date</p>
+                        <p className="text-right">
+                          {formatDateIndo(selectedRequest?.log_date)}
+                        </p>
+                      </div>
+                      {selectedRequest?.leave_id === 1 &&
+                        selectedRequest?.medical_certificate_name && (
+                          <div className="flex justify-between">
+                            <p>Medical Certificate</p>
+                            {selectedRequest?.medical_certificate_mime?.startsWith(
+                              "image/",
+                            ) ? (
+                              <div
+                                className="flex gap-1 group"
+                                onClick={() => setOpenPreview(true)}
+                                title="Preview File"
+                              >
+                                {previewFileLoader.loading ? (
+                                  <BtnLoading />
+                                ) : (
+                                  <img
+                                    src={previewFiles}
+                                    className="h-6 rounded object-cover cursor-zoom-in select-none hover:opacity-80 transition group-hover:opacity-80"
+                                  />
+                                )}
+                                <span className="cursor-pointer group-hover:underline shrink-0">
+                                  {truncateText(
+                                    selectedRequest?.medical_certificate_original_name,
+                                    20,
+                                  )}
+                                </span>
+                              </div>
+                            ) : (
+                              <div
+                                className="flex gap-1 group"
+                                onClick={() => setOpenPreview(true)}
+                                title="Preview File"
+                              >
+                                {previewFileLoader.loading ? (
+                                  <BtnLoading />
+                                ) : (
+                                  <File
+                                    className="size-4.5 hover:opacity-80 group-hover:opacity-80 cursor-pointer"
+                                    strokeWidth={"1.5px"}
+                                  />
+                                )}
+                                <span className="cursor-pointer group-hover:underline shrink-0">
+                                  {truncateText(
+                                    selectedRequest?.medical_certificate_original_name,
+                                    20,
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                    </div>
+                    {selectedRequest?.new_tgl2 && (
+                      <div className="flex flex-col flex-1 w-full mt-2">
+                        <div className="flex flex-1 w-full justify-between text-slate-800 mb-3">
+                          <p className="font-medium text-base">Revision</p>
+                          <div
+                            className={`px-1.5 py-0.5 mt-0.5 rounded-full outline-1 text-sm h-fit ${
+                              approvalStatusConfig[
+                                selectedRequest?.revision_status
+                              ]?.badgeClass ?? ""
+                            }`}
+                          >
+                            {approvalStatusConfig[
+                              selectedRequest?.revision_status
+                            ]?.label ?? ""}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 mb-2 outline-1 outline-slate-400 rounded-xl shadow-md text-sm w-full p-2">
+                          <div className="flex justify-between">
+                            <p>Date Change</p>
+                            <p className="text-right">
+                              {formatDateIndo(selectedRequest?.old_tgl2)}
+                              {" → "}
+                              {formatDateIndo(selectedRequest?.new_tgl2)}
+                            </p>
+                          </div>
+                          <div className="flex justify-between gap-10">
+                            <p>Reason</p>
+                            <p className="text-right">
+                              {selectedRequest?.revision_reason}
+                            </p>
+                          </div>
+                          <div className="flex justify-between">
+                            <p>Req. Date</p>
+                            <p className="text-right">
+                              {formatDateIndo(
+                                selectedRequest?.revision_log_date,
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* <div
                     className={`w-full space-y-5 mt-5 transition-all duration-500 ease-in-out
                                 ${
                                   actionMode === "reject" ||
@@ -1077,105 +1162,106 @@ export default function LeaveApproval() {
                       />
                     </div>
                   )} */}
-                  <ActionFormSection
-                    actionMode={actionMode}
-                    appear={
-                      actionMode === "reject" ||
-                      actionMode === "revoke" ||
-                      selectedRequest?.fl_approve == 2 ||
-                      selectedRequest?.fl_approve == 4 ||
-                      selectedRequest?.revision_status == 2
-                    }
-                    btnLabel={actionMode}
-                    handleCancel={() => setActionMode(null)}
-                    handleClick={
-                      actionMode === "reject" ? handleReject : handleRevoke
-                    }
-                    loading={submitLoader.loading}
-                    noteIsDisable={!!selectedRequest?.rejection_notes}
-                    notesLabel={
-                      actionMode ? `${actionMode} Notes` : "Reject Notes"
-                    }
-                    notesValue={rejectNotes}
-                    setNotesValue={setRejectNotes}
-                  />
+                    <ActionFormSection
+                      actionMode={actionMode}
+                      appear={
+                        actionMode === "reject" ||
+                        actionMode === "revoke" ||
+                        selectedRequest?.fl_approve == 2 ||
+                        selectedRequest?.fl_approve == 4 ||
+                        selectedRequest?.revision_status == 2
+                      }
+                      btnLabel={actionMode}
+                      handleCancel={() => setActionMode(null)}
+                      handleClick={
+                        actionMode === "reject" ? handleReject : handleRevoke
+                      }
+                      loading={submitLoader.loading}
+                      noteIsDisable={!!selectedRequest?.rejection_notes}
+                      notesLabel={
+                        actionMode ? `${actionMode} Notes` : "Reject Notes"
+                      }
+                      notesValue={rejectNotes}
+                      setNotesValue={setRejectNotes}
+                    />
 
-                  {actionMode != "reject" &&
-                    (selectedRequest?.fl_approve == 0 ||
-                      (selectedRequest?.revision_status === 0 &&
-                        selectedRequest?.new_tgl2)) && (
-                      <div className={`flex gap-12 mt-5 transition-all `}>
-                        <Button
-                          btnTitle="Reject Request"
-                          btnLabel={
-                            <span>
-                              <X />
-                            </span>
-                          }
-                          btndisable={submitLoader.loading}
-                          btnColor="bg-red-300 hover:bg-red-400 outline-1 outline-red-600 disabled:bg-slate-300 disabled:outline-slate-400 disabled:text-black/40 transition-all"
-                          withIcon="leading-none"
-                          btnWidth=""
-                          handleClick={() => setActionMode("reject")}
-                        />
-                        <Button
-                          btnTitle="Approve Request"
-                          btnLabel={
-                            submitLoader.loading ? (
-                              <div className="px-1 py-0.5">
-                                <BtnLoading />
-                              </div>
-                            ) : (
+                    {actionMode != "reject" &&
+                      (selectedRequest?.fl_approve == 0 ||
+                        (selectedRequest?.revision_status === 0 &&
+                          selectedRequest?.new_tgl2)) && (
+                        <div className={`flex gap-12 mt-5 transition-all `}>
+                          <Button
+                            btnTitle="Reject Request"
+                            btnLabel={
                               <span>
-                                <Check />
+                                <X />
                               </span>
-                            )
-                          }
-                          btndisable={submitLoader.loading}
-                          btnColor="bg-green-300 hover:bg-green-400 outline-1 outline-green-600"
-                          withIcon="leading-none"
-                          btnWidth=""
-                          handleClick={handleSubmit}
-                        />
-                      </div>
-                    )}
+                            }
+                            btndisable={submitLoader.loading}
+                            btnColor="bg-red-300 hover:bg-red-400 outline-1 outline-red-600 disabled:bg-slate-300 disabled:outline-slate-400 disabled:text-black/40 transition-all"
+                            withIcon="leading-none"
+                            btnWidth=""
+                            handleClick={() => setActionMode("reject")}
+                          />
+                          <Button
+                            btnTitle="Approve Request"
+                            btnLabel={
+                              submitLoader.loading ? (
+                                <div className="px-1 py-0.5">
+                                  <BtnLoading />
+                                </div>
+                              ) : (
+                                <span>
+                                  <Check />
+                                </span>
+                              )
+                            }
+                            btndisable={submitLoader.loading}
+                            btnColor="bg-green-300 hover:bg-green-400 outline-1 outline-green-600"
+                            withIcon="leading-none"
+                            btnWidth=""
+                            handleClick={handleSubmit}
+                          />
+                        </div>
+                      )}
 
-                  {actionMode === null &&
-                    selectedRequest?.fl_approve === 1 &&
-                    (selectedRequest?.revision_status === null ||
-                      selectedRequest?.revision_status === 1) && (
-                      <div className="flex gap-6 lg:gap-9 mt-5">
-                        <Button
-                          btnLabel={
-                            pdfLoader.loading ? (
-                              <BtnLoading label={"Downloading"} />
-                            ) : (
-                              <div>Download PDF</div>
-                            )
-                          }
-                          btnWidth="w-35 px-1!"
-                          btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60!"
-                          textSize="text-sm shadow-sm!"
-                          handleClick={handleGeneratePDF}
-                          btndisable={pdfLoader.loading}
-                        />
-                        <Button
-                          btnLabel={
-                            submitLoader.loading ? (
-                              <BtnLoading label={"Processing"} />
-                            ) : (
-                              <div className="my-0.5">Revoke Approval</div>
-                            )
-                          }
-                          btnWidth="w-35 px-1!"
-                          btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60! disabled:text-black/40"
-                          textSize="text-sm shadow-sm!"
-                          handleClick={() => setActionMode("revoke")}
-                          btndisable={pdfLoader.loading}
-                        />
-                      </div>
-                    )}
-                </FormContent>
+                    {actionMode === null &&
+                      selectedRequest?.fl_approve === 1 &&
+                      (selectedRequest?.revision_status === null ||
+                        selectedRequest?.revision_status === 1) && (
+                        <div className="flex gap-6 lg:gap-9 mt-5">
+                          <Button
+                            btnLabel={
+                              pdfLoader.loading ? (
+                                <BtnLoading label={"Downloading"} />
+                              ) : (
+                                <div>Download PDF</div>
+                              )
+                            }
+                            btnWidth="w-35 px-1!"
+                            btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60!"
+                            textSize="text-sm shadow-sm!"
+                            handleClick={handleGeneratePDF}
+                            btndisable={pdfLoader.loading}
+                          />
+                          <Button
+                            btnLabel={
+                              submitLoader.loading ? (
+                                <BtnLoading label={"Processing"} />
+                              ) : (
+                                <div className="my-0.5">Revoke Approval</div>
+                              )
+                            }
+                            btnWidth="w-35 px-1!"
+                            btnColor="outline-1 outline-slate-400 hover:outline-slate-600 hover:text-black/60! disabled:text-black/40"
+                            textSize="text-sm shadow-sm!"
+                            handleClick={() => setActionMode("revoke")}
+                            btndisable={pdfLoader.loading}
+                          />
+                        </div>
+                      )}
+                  </FormContent>
+                )}
               </ModalPanel>
             </div>
           )}

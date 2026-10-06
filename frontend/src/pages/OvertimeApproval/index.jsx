@@ -35,9 +35,12 @@ import CheckBox from "../../components/atoms/CheckBox/index.jsx";
 import { truncateText } from "../../utils/truncateText.js";
 import { Check, EllipsisVertical, X } from "lucide-react";
 import { formatCapitalize } from "../../utils/formatCapitalize.js";
+import { useSearchParams } from "react-router-dom";
 
 export default function OvertimeApproval() {
   const { user, subordinates } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
+  const requestId = searchParams.get("id");
   const [request, setRequest] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectNotes, setRejectNotes] = useState("");
@@ -85,6 +88,7 @@ export default function OvertimeApproval() {
     (s) => s.value === activeFilter.employee,
   );
   const { loading, startLoading, stopLoading } = useDelayedLoading();
+  const modalLoader = useDelayedLoading();
   const skeletonLoop = Array.from({ length: 5 });
   const requestIdRef = useRef(0);
   const submitLoader = useDelayedLoading();
@@ -113,6 +117,12 @@ export default function OvertimeApproval() {
     window.addEventListener("scroll", handleScroll, true);
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [rowPopup]);
+
+  useEffect(() => {
+    if (!requestId) return;
+
+    fetchSpecificRequest(requestId);
+  }, [requestId]);
 
   async function fetchOvertimeRequests() {
     const requestId = ++requestIdRef.current;
@@ -315,6 +325,26 @@ export default function OvertimeApproval() {
     setCheckedIds((prev) => prev.filter((itemId) => itemId !== id));
   }
 
+  function handleClickDetail(item) {
+    openModal();
+    setSelectedRequest(item);
+    setRejectNotes(item.rejection_notes ?? "");
+  }
+
+  async function fetchSpecificRequest(id) {
+    try {
+      modalLoader.startLoading();
+      openModal();
+      const res = await api.get(`/overtimeApproval/${id}/request`);
+
+      handleClickDetail(res.data);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to fetch request");
+    } finally {
+      modalLoader.stopLoading();
+    }
+  }
+
   return (
     <>
       <div className="bg-slate-100 flex flex-1 flex-col p-0.5 min-h-0">
@@ -509,11 +539,7 @@ export default function OvertimeApproval() {
           >
             <SidebarButton
               name={"Detail"}
-              handleClick={() => {
-                openModal();
-                setSelectedRequest(rowPopup.log);
-                setRejectNotes(rowPopup.log.rejection_notes ?? "");
-              }}
+              handleClick={() => handleClickDetail(rowPopup.log)}
             />
           </PopUpMenu>
         )}
@@ -573,134 +599,178 @@ export default function OvertimeApproval() {
                 handleClose={handleClose}
                 badgeColor={statusConfig?.badgeClass ?? ""}
                 badgeLabel={statusConfig?.label ?? ""}
+                loading={modalLoader.loading}
               >
-                <FormContent>
-                  <div className="flex w-full flex-col">
-                    <div className="flex font-medium mb-1">
-                      <p>Lembur</p>
+                {modalLoader.loading ? (
+                  <FormContent>
+                    <div className="text-transparent flex w-full flex-col">
+                      <div className="flex font-medium">
+                        <p className="skeleton rounded-xl bg-slate-200">
+                          Loading...
+                        </p>
+                      </div>
+                      <div className="skeleton bg-slate-200 flex justify-around rounded-xl p-2 my-1 gap-2 font-medium">
+                        <div className="flex flex-1 flex-col text-center">
+                          <p className="text-sm">Loading</p>
+                          <p className="text-base lg:text-lg">Loading</p>
+                        </div>
+                      </div>
+                      <div className="skeleton bg-slate-200 rounded-xl flex flex-1 justify-between text-center font-medium">
+                        <p className="text-base">Loading</p>
+                      </div>
+
+                      <div className="flex flex-1 flex-col mt-3 gap-1">
+                        <div className="skeleton bg-slate-200 rounded-xl flex justify-between gap-10">
+                          <p>Loading</p>
+                        </div>
+                        <div className="skeleton bg-slate-200 rounded-xl flex justify-between gap-10">
+                          <p>Loading</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-around rounded-xl p-2 gap-2 outline-1 outline-slate-400 shadow-sm font-medium">
-                      <div className="flex flex-1 flex-col text-center">
-                        <p className="text-sm text-slate-500">Real Duration</p>
+
+                    <div
+                      className={`text-transparent flex gap-12 mt-5 transition-all `}
+                    >
+                      <div className="skeleton bg-slate-200 rounded-xl">
+                        Loading
+                      </div>
+                      <div className="skeleton bg-slate-200 rounded-xl">
+                        Loading
+                      </div>
+                    </div>
+                  </FormContent>
+                ) : (
+                  <FormContent>
+                    <div className="flex w-full flex-col">
+                      <div className="flex font-medium mb-1">
+                        <p>Lembur</p>
+                      </div>
+                      <div className="flex justify-around rounded-xl p-2 gap-2 outline-1 outline-slate-400 shadow-sm font-medium">
+                        <div className="flex flex-1 flex-col text-center">
+                          <p className="text-sm text-slate-500">
+                            Real Duration
+                          </p>
+                          <p className="text-base lg:text-lg">
+                            {selectedRequest?.real_hours
+                              ? `${Number(selectedRequest?.real_hours)} jam`
+                              : "-"}
+                          </p>
+                        </div>
+                        <div className="flex flex-1 flex-col text-center">
+                          <p className="text-sm text-slate-500">Date</p>
+                          <p className="text-base md:hidden">
+                            {formatDateIndo(selectedRequest?.tgl, "short")}
+                          </p>
+                          <p className="hidden md:flex justify-center text-base lg:text-lg">
+                            {formatDateIndo(selectedRequest?.tgl, "long")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-1 justify-between text-center font-medium">
+                        <p className="text-base">Overtime Duration</p>
                         <p className="text-base lg:text-lg">
-                          {selectedRequest?.real_hours
-                            ? `${Number(selectedRequest?.real_hours)} jam`
+                          {selectedRequest?.overtime_hours
+                            ? `${Number(selectedRequest?.overtime_hours)} jam`
                             : "-"}
                         </p>
                       </div>
-                      <div className="flex flex-1 flex-col text-center">
-                        <p className="text-sm text-slate-500">Date</p>
-                        <p className="text-base md:hidden">
-                          {formatDateIndo(selectedRequest?.tgl, "short")}
-                        </p>
-                        <p className="hidden md:flex justify-center text-base lg:text-lg">
-                          {formatDateIndo(selectedRequest?.tgl, "long")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-1 justify-between text-center font-medium">
-                      <p className="text-base">Overtime Duration</p>
-                      <p className="text-base lg:text-lg">
-                        {selectedRequest?.overtime_hours
-                          ? `${Number(selectedRequest?.overtime_hours)} jam`
-                          : "-"}
-                      </p>
-                    </div>
 
-                    {selectedRequest?.overtime_hours ? (
-                      <div className="flex flex-1 flex-col mt-2">
-                        <div className="flex justify-between">
-                          <p>Clock-in</p>
-                          <p>{formatMySQLTime(selectedRequest?.masuk)}</p>
-                        </div>
-                        <div className="flex justify-between">
-                          <p>Clock-out</p>
-                          <p>{formatMySQLTime(selectedRequest?.pulang)}</p>
-                        </div>
-                        <div className="flex justify-between">
-                          <p>Clock-out rounded</p>
-                          <p>
-                            {formatMySQLTime(selectedRequest?.pulang_rounded)}
-                          </p>
-                        </div>
-                        {selectedRequest?.telat > 0 && (
+                      {selectedRequest?.overtime_hours ? (
+                        <div className="flex flex-1 flex-col mt-2">
                           <div className="flex justify-between">
-                            <p>Late</p>
-                            <p>{minuteConvert(selectedRequest?.telat)}</p>
+                            <p>Clock-in</p>
+                            <p>{formatMySQLTime(selectedRequest?.masuk)}</p>
                           </div>
-                        )}
-                        <div className="flex justify-between gap-10">
-                          <p>Desc</p>
-                          <p className="text-right">
-                            {selectedRequest?.keterangan}
-                          </p>
+                          <div className="flex justify-between">
+                            <p>Clock-out</p>
+                            <p>{formatMySQLTime(selectedRequest?.pulang)}</p>
+                          </div>
+                          <div className="flex justify-between">
+                            <p>Clock-out rounded</p>
+                            <p>
+                              {formatMySQLTime(selectedRequest?.pulang_rounded)}
+                            </p>
+                          </div>
+                          {selectedRequest?.telat > 0 && (
+                            <div className="flex justify-between">
+                              <p>Late</p>
+                              <p>{minuteConvert(selectedRequest?.telat)}</p>
+                            </div>
+                          )}
+                          <div className="flex justify-between gap-10">
+                            <p>Desc</p>
+                            <p className="text-right">
+                              {selectedRequest?.keterangan}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-1 flex-col mt-2">
-                        <div className="flex justify-between gap-10">
-                          <p>Desc</p>
-                          <p className="text-right">
-                            {selectedRequest?.keterangan}
-                          </p>
+                      ) : (
+                        <div className="flex flex-1 flex-col mt-2">
+                          <div className="flex justify-between gap-10">
+                            <p>Desc</p>
+                            <p className="text-right">
+                              {selectedRequest?.keterangan}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
 
-                  <ActionFormSection
-                    actionMode={actionMode}
-                    appear={
-                      actionMode === "reject" ||
-                      selectedRequest?.fl_approve == 2
-                    }
-                    btnLabel={actionMode}
-                    handleCancel={() => setActionMode(null)}
-                    handleClick={submitReject}
-                    loading={submitLoader.loading}
-                    noteIsDisable={!!selectedRequest?.rejection_notes}
-                    notesLabel={"Reject Notes"}
-                    notesValue={rejectNotes}
-                    setNotesValue={setRejectNotes}
-                  />
+                    <ActionFormSection
+                      actionMode={actionMode}
+                      appear={
+                        actionMode === "reject" ||
+                        selectedRequest?.fl_approve == 2
+                      }
+                      btnLabel={actionMode}
+                      handleCancel={() => setActionMode(null)}
+                      handleClick={submitReject}
+                      loading={submitLoader.loading}
+                      noteIsDisable={!!selectedRequest?.rejection_notes}
+                      notesLabel={"Reject Notes"}
+                      notesValue={rejectNotes}
+                      setNotesValue={setRejectNotes}
+                    />
 
-                  {actionMode != "reject" &&
-                    selectedRequest?.fl_approve == 0 && (
-                      <div className={`flex gap-12 mt-5 transition-all `}>
-                        <Button
-                          btnTitle="Reject Request"
-                          btnLabel={
-                            <span>
-                              <X />
-                            </span>
-                          }
-                          btndisable={submitLoader.loading}
-                          btnColor="bg-red-300 hover:bg-red-400 outline-1 outline-red-600 disabled:bg-slate-300 disabled:outline-slate-400 disabled:text-black/40 transition-all"
-                          withIcon="leading-none"
-                          btnWidth=""
-                          handleClick={() => setActionMode("reject")}
-                        />
-                        <Button
-                          btnTitle="Approve Request"
-                          btnLabel={
-                            submitLoader.loading ? (
-                              <div className="px-1 py-0.5">
-                                <BtnLoading />
-                              </div>
-                            ) : (
+                    {actionMode != "reject" &&
+                      selectedRequest?.fl_approve == 0 && (
+                        <div className={`flex gap-12 mt-5 transition-all `}>
+                          <Button
+                            btnTitle="Reject Request"
+                            btnLabel={
                               <span>
-                                <Check />
+                                <X />
                               </span>
-                            )
-                          }
-                          btnColor="bg-green-300 hover:bg-green-400 outline-1 outline-green-600"
-                          withIcon="leading-none"
-                          btnWidth=""
-                          handleClick={submitApprove}
-                        />
-                      </div>
-                    )}
-                </FormContent>
+                            }
+                            btndisable={submitLoader.loading}
+                            btnColor="bg-red-300 hover:bg-red-400 outline-1 outline-red-600 disabled:bg-slate-300 disabled:outline-slate-400 disabled:text-black/40 transition-all"
+                            withIcon="leading-none"
+                            btnWidth=""
+                            handleClick={() => setActionMode("reject")}
+                          />
+                          <Button
+                            btnTitle="Approve Request"
+                            btnLabel={
+                              submitLoader.loading ? (
+                                <div className="px-1 py-0.5">
+                                  <BtnLoading />
+                                </div>
+                              ) : (
+                                <span>
+                                  <Check />
+                                </span>
+                              )
+                            }
+                            btnColor="bg-green-300 hover:bg-green-400 outline-1 outline-green-600"
+                            withIcon="leading-none"
+                            btnWidth=""
+                            handleClick={submitApprove}
+                          />
+                        </div>
+                      )}
+                  </FormContent>
+                )}
               </ModalPanel>
             </div>
           )}

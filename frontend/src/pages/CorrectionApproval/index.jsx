@@ -36,9 +36,12 @@ import CheckBox from "../../components/atoms/CheckBox";
 import PopUpMenu from "../../components/organisms/PopUpMenu";
 import SidebarButton from "../../components/atoms/SidebarButton";
 import { formatCapitalize } from "../../utils/formatCapitalize";
+import { useSearchParams } from "react-router-dom";
 
 export default function CorrectionApproval() {
   const { user, subordinates } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
+  const requestId = searchParams.get("id");
   const [requests, setRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectNotes, setRejectNotes] = useState("");
@@ -88,6 +91,7 @@ export default function CorrectionApproval() {
   const { loading, startLoading, stopLoading } = useDelayedLoading();
   const submitLoader = useDelayedLoading();
   const submitBulkLoader = useDelayedLoading();
+  const modalLoader = useDelayedLoading();
   const skeletonLoop = Array.from({ length: 5 });
   const requestIdRef = useRef(0);
   const [adjustTime, setAdjustTime] = useState({
@@ -139,6 +143,11 @@ export default function CorrectionApproval() {
     window.addEventListener("scroll", handleScroll, true);
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [rowPopup]);
+
+  useEffect(() => {
+    if (!requestId) return;
+    fetchSpecificRequest(requestId);
+  }, [requestId]);
 
   function handleAdjustTime() {
     if (selectedRequest?.correction_type === "ISI_ABSEN_MASUK_PULANG") {
@@ -418,10 +427,11 @@ export default function CorrectionApproval() {
   }
 
   function handleClickDetail(item) {
-    fetchLeaveQuota(item.regnum, item.tgl1);
     openModal();
     setSelectedRequest(item);
-    setRejectNotes(item.rejection_notes || item.revision_rejection_notes || "");
+    setRejectNotes(item.rejection_notes ?? "");
+    setLateExcused(item.late_excused ?? 0);
+    setEarlyLeaveExcused(item.early_leave_excused ?? 0);
   }
 
   function handleToggleCheck(id, status) {
@@ -434,6 +444,20 @@ export default function CorrectionApproval() {
       }
       return [...prev, id];
     });
+  }
+
+  async function fetchSpecificRequest(id) {
+    try {
+      modalLoader.startLoading();
+      openModal();
+      const res = await api.get(`/correctionApproval/${id}/request`);
+      const enrichedData = enrichCorrection(res.data);
+      handleClickDetail(enrichedData);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to fetch request");
+    } finally {
+      modalLoader.stopLoading();
+    }
   }
 
   return (
@@ -698,167 +722,210 @@ export default function CorrectionApproval() {
               handleClose={handleClose}
               badgeColor={statusConfig?.badgeClass ?? ""}
               badgeLabel={statusConfig?.label ?? ""}
+              loading={modalLoader.loading}
             >
-              <FormContent>
-                <div className="flex w-full flex-col">
-                  <div className="flex flex-1 w-full text-base font-medium mb-1">
-                    <p>{selectedRequest?.thumbnail.label}</p>
-                  </div>
-                  <div
-                    className={`flex justify-around rounded-xl p-2 gap-2 outline-1 outline-slate-400 shadow-sm font-medium transition-all duration-300 ease-in-out 
-                      ${isEdit ? "max-h-35" : "max-h-24"}`}
-                  >
-                    <div className="flex flex-col justify-center text-center">
-                      <p className="text-sm text-slate-500">Date</p>
-                      <p className="text-base lg:hidden">
-                        {formatDateIndo(selectedRequest?.tgl)}
-                      </p>
-                      <p className="text-lg hidden lg:flex">
-                        {formatDateIndo(selectedRequest?.tgl, "long")}
-                      </p>
+              {modalLoader.loading ? (
+                <FormContent>
+                  <div className="text-transparent flex w-full flex-col">
+                    <div className="skeleton rounded-xl bg-slate-200 flex flex-1 w-full text-base font-medium mb-1">
+                      <p>Loading</p>
                     </div>
                     <div
-                      className={`flex justify-center items-center text-center gap-1 transition-all duration-300`}
+                      className={`flex justify-around rounded-xl p-2 gap-2 outline-1 outline-slate-400 shadow-sm font-medium 
+                      ${isEdit ? "max-h-35" : "max-h-24"}`}
                     >
-                      <div
-                        className={`flex flex-col my-1.5 transition-all duration-300 ease-in-out ${isEdit ? "opacity-0 max-w-0 translate-x-10" : "opacity-100 max-w-31"}`}
-                      >
-                        <p className="text-sm text-slate-500">
-                          {selectedRequest?.thumbnail.label}
+                      <div className="skeleton rounded-xl bg-slate-200 flex flex-col my-2 justify-center text-center">
+                        <p className="text-sm">Loading</p>
+                        <p className="text-base">Loading...</p>
+                      </div>
+                      <div className="skeleton rounded-xl bg-slate-200 flex flex-col justify-center text-center">
+                        <p className="text-sm">Loading</p>
+                        <p className="text-base">Loading...</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col p-2 gap-2 text-sm mt-1">
+                      <div className="skeleton rounded-xl bg-slate-200">
+                        <p>Loading</p>
+                      </div>
+                      <div className="skeleton rounded-xl bg-slate-200 ">
+                        <p>Loading</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className={`text-transparent flex gap-12 mt-5 transition-all `}
+                  >
+                    <div className="skeleton rounded-xl py-1.5 bg-slate-200">
+                      Loading
+                    </div>
+                    <div className="skeleton rounded-xl py-1.5 bg-slate-200">
+                      Loading
+                    </div>
+                  </div>
+                </FormContent>
+              ) : (
+                <FormContent>
+                  <div className="flex w-full flex-col">
+                    <div className="flex flex-1 w-full text-base font-medium mb-1">
+                      <p>{selectedRequest?.thumbnail.label}</p>
+                    </div>
+                    <div
+                      className={`flex justify-around rounded-xl p-2 gap-2 outline-1 outline-slate-400 shadow-sm font-medium transition-all duration-300 ease-in-out 
+                      ${isEdit ? "max-h-35" : "max-h-24"}`}
+                    >
+                      <div className="flex flex-col justify-center text-center">
+                        <p className="text-sm text-slate-500">Date</p>
+                        <p className="text-base lg:hidden">
+                          {formatDateIndo(selectedRequest?.tgl)}
                         </p>
-                        <p className="text-base lg:text-lg">
-                          {selectedRequest?.thumbnail.time ??
-                            selectedRequest?.thumbnail.value}
+                        <p className="text-lg hidden lg:flex">
+                          {formatDateIndo(selectedRequest?.tgl, "long")}
                         </p>
                       </div>
-
                       <div
-                        className={`flex flex-col transition-all duration-300 ${isEdit ? "opacity-100 max-w-31" : "opacity-0 max-w-0 -translate-x-10"}`}
+                        className={`flex justify-center items-center text-center gap-1 transition-all duration-300`}
                       >
-                        {adjustTime.clockIn !== null && (
-                          <FloatingTime
-                            id={"adjustIn"}
-                            label="Clock In"
-                            value={adjustTime.clockIn}
-                            onChange={(r) =>
-                              handleChangeAdjustTime(r, "clockIn")
-                            }
-                            displayValue={adjustTime.clockIn}
-                            setDisplayValue={(r) =>
-                              handleChangeAdjustTime(r, "clockIn")
-                            }
-                            fontThickness="font-normal"
-                            border="border"
-                          />
-                        )}
+                        <div
+                          className={`flex flex-col my-1.5 transition-all duration-300 ease-in-out ${isEdit ? "opacity-0 max-w-0 translate-x-10" : "opacity-100 max-w-31"}`}
+                        >
+                          <p className="text-sm text-slate-500">
+                            {selectedRequest?.thumbnail.label}
+                          </p>
+                          <p className="text-base lg:text-lg">
+                            {selectedRequest?.thumbnail.time ??
+                              selectedRequest?.thumbnail.value}
+                          </p>
+                        </div>
 
-                        {adjustTime.clockOut !== null && (
-                          <FloatingTime
-                            id={"adjustOut"}
-                            label="Clock Out"
-                            value={adjustTime.clockOut}
-                            onChange={(r) =>
-                              handleChangeAdjustTime(r, "clockOut")
-                            }
-                            displayValue={adjustTime.clockOut}
-                            setDisplayValue={(r) =>
-                              handleChangeAdjustTime(r, "clockOut")
-                            }
-                            fontThickness="font-normal"
-                            border="border"
-                          />
-                        )}
-                      </div>
-                      {selectedRequest?.fl_approve === 0 &&
-                        !selectedRequest?.correction_type?.startsWith(
-                          "IZIN",
-                        ) && (
-                          <div className="flex flex-col">
-                            <span
-                              title="Cancel Adjustment"
-                              className={`rounded-full p-1 leading-none transition-all duration-300 ease-in-out select-none cursor-pointer bg-red-100 hover:text-black/70 hover:bg-red-200 
+                        <div
+                          className={`flex flex-col transition-all duration-300 ${isEdit ? "opacity-100 max-w-31" : "opacity-0 max-w-0 -translate-x-10"}`}
+                        >
+                          {adjustTime.clockIn !== null && (
+                            <FloatingTime
+                              id={"adjustIn"}
+                              label="Clock In"
+                              value={adjustTime.clockIn}
+                              onChange={(r) =>
+                                handleChangeAdjustTime(r, "clockIn")
+                              }
+                              displayValue={adjustTime.clockIn}
+                              setDisplayValue={(r) =>
+                                handleChangeAdjustTime(r, "clockIn")
+                              }
+                              fontThickness="font-normal"
+                              border="border"
+                            />
+                          )}
+
+                          {adjustTime.clockOut !== null && (
+                            <FloatingTime
+                              id={"adjustOut"}
+                              label="Clock Out"
+                              value={adjustTime.clockOut}
+                              onChange={(r) =>
+                                handleChangeAdjustTime(r, "clockOut")
+                              }
+                              displayValue={adjustTime.clockOut}
+                              setDisplayValue={(r) =>
+                                handleChangeAdjustTime(r, "clockOut")
+                              }
+                              fontThickness="font-normal"
+                              border="border"
+                            />
+                          )}
+                        </div>
+                        {selectedRequest?.fl_approve === 0 &&
+                          !selectedRequest?.correction_type?.startsWith(
+                            "IZIN",
+                          ) && (
+                            <div className="flex flex-col">
+                              <span
+                                title="Cancel Adjustment"
+                                className={`rounded-full p-1 leading-none transition-all duration-300 ease-in-out select-none cursor-pointer bg-red-100 hover:text-black/70 hover:bg-red-200 
                               ${isEdit ? "opacity-100 -translate-y-1 scale-100" : "opacity-0 translate-y-7 scale-0"}`}
-                              onClick={() => setIsEdit(false)}
-                            >
-                              <X className="size-5" />
-                            </span>
-                            <span
-                              title="Adjust Time"
-                              className={`flex justify-center rounded-full px-1 py-1.5 leading-none transition-all duration-300 ease-in-out select-none cursor-pointer hover:text-black/70 hover:bg-slate-200 ${isEdit ? "bg-slate-300" : "-translate-y-2"}`}
-                              onClick={() => setIsEdit(!isEdit)}
-                            >
-                              <Pencil className="size-4" />
-                            </span>
+                                onClick={() => setIsEdit(false)}
+                              >
+                                <X className="size-5" />
+                              </span>
+                              <span
+                                title="Adjust Time"
+                                className={`flex justify-center rounded-full px-1 py-1.5 leading-none transition-all duration-300 ease-in-out select-none cursor-pointer hover:text-black/70 hover:bg-slate-200 ${isEdit ? "bg-slate-300" : "-translate-y-2"}`}
+                                onClick={() => setIsEdit(!isEdit)}
+                              >
+                                <Pencil className="size-4" />
+                              </span>
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col p-2 gap-2 text-sm mt-1">
+                      <div className="flex justify-between">
+                        <p>Req. Date:</p>
+                        <p className="text-right">
+                          {formatDateIndo(selectedRequest?.log_date)}
+                        </p>
+                      </div>
+                      {selectedRequest?.telat > 0 &&
+                        selectedRequest.correction_type !==
+                          "ISI_ABSEN_PULANG" &&
+                        selectedRequest?.correction_type !==
+                          "IZIN_PULANG_CEPAT" && (
+                          <div className="flex justify-between">
+                            <p>Late:</p>
+                            <p>{selectedRequest?.lateFormatted}</p>
                           </div>
                         )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col p-2 gap-2 text-sm mt-1">
-                    <div className="flex justify-between">
-                      <p>Req. Date:</p>
-                      <p className="text-right">
-                        {formatDateIndo(selectedRequest?.log_date)}
-                      </p>
-                    </div>
-                    {selectedRequest?.telat > 0 &&
-                      selectedRequest.correction_type !== "ISI_ABSEN_PULANG" &&
-                      selectedRequest?.correction_type !==
-                        "IZIN_PULANG_CEPAT" && (
-                        <div className="flex justify-between">
-                          <p>Late:</p>
-                          <p>{selectedRequest?.lateFormatted}</p>
+                      {selectedRequest?.pulang_cepat > 0 &&
+                        selectedRequest?.correction_type !==
+                          "ISI_ABSEN_MASUK" &&
+                        selectedRequest?.correction_type !== "IZIN_TELAT" && (
+                          <div className="flex justify-between">
+                            <p>Early Leave:</p>
+                            <p>{selectedRequest?.earlyLeaveFormatted}</p>
+                          </div>
+                        )}
+                      <div className="flex justify-between gap-10">
+                        <p>Desc:</p>
+                        <p className="text-right">
+                          {selectedRequest?.keterangan}
+                        </p>
+                      </div>
+
+                      {canExcuseLate && (
+                        <div className="flex w-full gap-2 mt-2">
+                          <CheckBox
+                            id={"late-excused"}
+                            label={"Tandai sebagai telat berizin"}
+                            isTruncate={false}
+                            // status={selectedRequest?.fl_approve}
+                            checked={lateExcused}
+                            onClick={() => {
+                              if (selectedRequest?.fl_approve === 0)
+                                setLateExcused((prev) => !prev);
+                            }}
+                          />
                         </div>
                       )}
-                    {selectedRequest?.pulang_cepat > 0 &&
-                      selectedRequest?.correction_type !== "ISI_ABSEN_MASUK" &&
-                      selectedRequest?.correction_type !== "IZIN_TELAT" && (
-                        <div className="flex justify-between">
-                          <p>Early Leave:</p>
-                          <p>{selectedRequest?.earlyLeaveFormatted}</p>
+
+                      {canExcuseEarlyLeave && (
+                        <div className="flex w-full gap-2 mt-2">
+                          <CheckBox
+                            id={"early-leave-excused"}
+                            label={"Tandai sebagai pulang cepat berizin"}
+                            isTruncate={false}
+                            // status={selectedRequest?.fl_approve}
+                            checked={earlyLeaveExcused}
+                            onClick={() => {
+                              if (selectedRequest?.fl_approve === 0)
+                                setEarlyLeaveExcused((prev) => !prev);
+                            }}
+                          />
                         </div>
                       )}
-                    <div className="flex justify-between gap-10">
-                      <p>Desc:</p>
-                      <p className="text-right">
-                        {selectedRequest?.keterangan}
-                      </p>
                     </div>
-
-                    {canExcuseLate && (
-                      <div className="flex w-full gap-2 mt-2">
-                        <CheckBox
-                          id={"late-excused"}
-                          label={"Tandai sebagai telat berizin"}
-                          isTruncate={false}
-                          // status={selectedRequest?.fl_approve}
-                          checked={lateExcused}
-                          onClick={() => {
-                            if (selectedRequest?.fl_approve === 0)
-                              setLateExcused((prev) => !prev);
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {canExcuseEarlyLeave && (
-                      <div className="flex w-full gap-2 mt-2">
-                        <CheckBox
-                          id={"early-leave-excused"}
-                          label={"Tandai sebagai pulang cepat berizin"}
-                          isTruncate={false}
-                          // status={selectedRequest?.fl_approve}
-                          checked={earlyLeaveExcused}
-                          onClick={() => {
-                            if (selectedRequest?.fl_approve === 0)
-                              setEarlyLeaveExcused((prev) => !prev);
-                          }}
-                        />
-                      </div>
-                    )}
                   </div>
-                </div>
 
-                {/* <div
+                  {/* <div
                   className={`w-full space-y-5 transition-all duration-500 ease-in-out
                               ${
                                 actionMode === "reject" ||
@@ -898,58 +965,61 @@ export default function CorrectionApproval() {
                     />
                   </div>
                 )} */}
-                <ActionFormSection
-                  actionMode={actionMode}
-                  appear={
-                    actionMode === "reject" || selectedRequest?.fl_approve == 2
-                  }
-                  btnLabel={actionMode}
-                  handleCancel={() => setActionMode(null)}
-                  handleClick={submitReject}
-                  loading={submitLoader.loading}
-                  noteIsDisable={!!selectedRequest?.rejection_notes}
-                  notesLabel={"Reject Notes"}
-                  notesValue={rejectNotes}
-                  setNotesValue={setRejectNotes}
-                />
+                  <ActionFormSection
+                    actionMode={actionMode}
+                    appear={
+                      actionMode === "reject" ||
+                      selectedRequest?.fl_approve == 2
+                    }
+                    btnLabel={actionMode}
+                    handleCancel={() => setActionMode(null)}
+                    handleClick={submitReject}
+                    loading={submitLoader.loading}
+                    noteIsDisable={!!selectedRequest?.rejection_notes}
+                    notesLabel={"Reject Notes"}
+                    notesValue={rejectNotes}
+                    setNotesValue={setRejectNotes}
+                  />
 
-                {actionMode != "reject" && selectedRequest?.fl_approve == 0 && (
-                  <div className={`flex gap-12 mt-5 transition-all `}>
-                    <Button
-                      btnTitle="Reject Request"
-                      btnLabel={
-                        <span>
-                          <X />
-                        </span>
-                      }
-                      btndisable={submitLoader.loading}
-                      btnColor="bg-red-300 hover:bg-red-400 outline-1 outline-red-600 disabled:bg-slate-300 disabled:outline-slate-400 disabled:text-black/40 transition-all"
-                      withIcon="leading-none"
-                      btnWidth=""
-                      handleClick={() => setActionMode("reject")}
-                    />
-                    <Button
-                      btnTitle="Approve Request"
-                      btnLabel={
-                        submitLoader.loading ? (
-                          <div className="px-1 py-0.5">
-                            <BtnLoading />
-                          </div>
-                        ) : (
-                          <span>
-                            <Check />
-                          </span>
-                        )
-                      }
-                      btndisable={submitLoader.loading}
-                      btnColor="bg-green-300 hover:bg-green-400 outline-1 outline-green-600"
-                      withIcon="leading-none"
-                      btnWidth=""
-                      handleClick={handleSubmitApprove}
-                    />
-                  </div>
-                )}
-              </FormContent>
+                  {actionMode != "reject" &&
+                    selectedRequest?.fl_approve == 0 && (
+                      <div className={`flex gap-12 mt-5 transition-all `}>
+                        <Button
+                          btnTitle="Reject Request"
+                          btnLabel={
+                            <span>
+                              <X />
+                            </span>
+                          }
+                          btndisable={submitLoader.loading}
+                          btnColor="bg-red-300 hover:bg-red-400 outline-1 outline-red-600 disabled:bg-slate-300 disabled:outline-slate-400 disabled:text-black/40 transition-all"
+                          withIcon="leading-none"
+                          btnWidth=""
+                          handleClick={() => setActionMode("reject")}
+                        />
+                        <Button
+                          btnTitle="Approve Request"
+                          btnLabel={
+                            submitLoader.loading ? (
+                              <div className="px-1 py-0.5">
+                                <BtnLoading />
+                              </div>
+                            ) : (
+                              <span>
+                                <Check />
+                              </span>
+                            )
+                          }
+                          btndisable={submitLoader.loading}
+                          btnColor="bg-green-300 hover:bg-green-400 outline-1 outline-green-600"
+                          withIcon="leading-none"
+                          btnWidth=""
+                          handleClick={handleSubmitApprove}
+                        />
+                      </div>
+                    )}
+                </FormContent>
+              )}
             </ModalPanel>
           </div>
         )}
@@ -985,13 +1055,7 @@ export default function CorrectionApproval() {
         >
           <SidebarButton
             name={"Detail"}
-            handleClick={() => {
-              openModal();
-              setSelectedRequest(rowPopup.item);
-              setRejectNotes(rowPopup.item.rejection_notes ?? "");
-              setLateExcused(rowPopup.item.late_excused ?? 0);
-              setEarlyLeaveExcused(rowPopup.item.early_leave_excused ?? 0);
-            }}
+            handleClick={() => handleClickDetail(rowPopup.item)}
           />
         </PopUpMenu>
       )}
